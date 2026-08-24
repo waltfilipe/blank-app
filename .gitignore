@@ -1,5 +1,8 @@
 .streamlit/secrets.toml
 
+# Generated dataset (run scripts/generate_dataset.py)
+data/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
