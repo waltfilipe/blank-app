@@ -1,2 +1,9 @@
 streamlit
 pandas
+pillow
+tensorflow>=2.15
+scikit-learn
+matplotlib
+seaborn
+jupyter
+ipykernel
