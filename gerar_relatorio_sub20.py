@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import math
 import re
 from datetime import datetime
 from pathlib import Path
@@ -12,7 +13,8 @@ import pandas as pd
 import requests
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
-from matplotlib.patches import Circle
+import matplotlib.patheffects as pe
+from matplotlib.patches import Circle, FancyBboxPatch
 from PIL import Image
 
 SERIE_B_FILE = Path("serie b sub 20.xlsx")
@@ -21,11 +23,16 @@ OUTPUT_FILE = Path("relatorio_sub20_serie_b_c.pdf")
 LOGO_CACHE_DIR = Path(".cache/logos")
 
 COLORS = {
-    "serie_b": "#1B5E20",
+    "serie_b": "#0D3B1E",
+    "serie_b_light": "#1B6B3A",
     "serie_c": "#2E7D32",
+    "serie_c_light": "#66BB6A",
     "accent": "#43A047",
-    "highlight": "#66BB6A",
-    "bg": "#FAFAFA",
+    "highlight": "#A5D6A7",
+    "bg": "#F4F7F5",
+    "card": "#FFFFFF",
+    "text": "#1B4332",
+    "muted": "#5F6F65",
 }
 
 WIKI_NAMES = {
@@ -139,30 +146,129 @@ def _add_logo_below_bar(ax, x: float, team: str, logo: Image.Image | None, zoom:
 
 
 def chart_player_quantity_pie(df_b: pd.DataFrame, df_c: pd.DataFrame) -> plt.Figure:
-    fig, ax = plt.subplots(figsize=(11, 8.5))
+    fig = plt.figure(figsize=(11, 8.5))
+    fig.patch.set_facecolor(COLORS["bg"])
     _style_page(fig, "1. Quantidade de jogadores sub-20", "Distribuição por divisão")
 
+    ax = fig.add_axes([0.06, 0.12, 0.58, 0.72])
+    ax.set_facecolor(COLORS["bg"])
+
     values = [len(df_b), len(df_c)]
-    labels = [f"Série B\n{values[0]} jogadores", f"Série C\n{values[1]} jogadores"]
-    colors = [COLORS["serie_b"], COLORS["serie_c"]]
+    total = sum(values)
+    pct_b = values[0] / total * 100
+    pct_c = values[1] / total * 100
 
-    wedges, texts, autotexts = ax.pie(
+    palette = [COLORS["serie_b"], COLORS["serie_c_light"]]
+    explode = (0.05, 0.05)
+
+    wedges, _ = ax.pie(
         values,
-        labels=labels,
-        colors=colors,
-        autopct=lambda p: f"{p:.1f}%",
-        startangle=90,
-        explode=(0.03, 0.03),
-        textprops={"fontsize": 11, "color": "#222222"},
-        wedgeprops={"edgecolor": "white", "linewidth": 2},
+        colors=palette,
+        startangle=92,
+        explode=explode,
+        wedgeprops={
+            "width": 0.44,
+            "edgecolor": COLORS["card"],
+            "linewidth": 3.5,
+            "joinstyle": "round",
+        },
     )
-    for autotext in autotexts:
-        autotext.set_color("white")
-        autotext.set_fontweight("bold")
 
-    ax.text(0, 0, f"Total\n{sum(values)}", ha="center", va="center", fontsize=18, fontweight="bold", color="#1B4332")
-    ax.axis("equal")
-    fig.subplots_adjust(top=0.86, bottom=0.08)
+    for wedge in wedges:
+        wedge.set_path_effects([pe.withSimplePatchShadow(offset=(2, -2), shadow_rgbFace="#90A4AE", alpha=0.28)])
+
+    center = Circle((0, 0), 0.56, fc=COLORS["card"], ec="#DDE8E0", lw=2.2, zorder=5)
+    ax.add_patch(center)
+
+    ax.text(0, 0.14, "TOTAL", ha="center", va="center", fontsize=11, fontweight="bold", color=COLORS["muted"], zorder=6)
+    ax.text(0, -0.06, str(total), ha="center", va="center", fontsize=36, fontweight="bold", color=COLORS["text"], zorder=6)
+    ax.text(0, -0.27, "jogadores sub-20", ha="center", va="center", fontsize=10, color=COLORS["muted"], zorder=6)
+
+    meta = [
+        ("Série B", values[0], pct_b, palette[0]),
+        ("Série C", values[1], pct_c, palette[1]),
+    ]
+    for wedge, (label, count, pct, color) in zip(wedges, meta):
+        angle = math.radians((wedge.theta2 + wedge.theta1) / 2)
+        x_inner = 0.86 * math.cos(angle)
+        y_inner = 0.86 * math.sin(angle)
+        x_outer = 1.22 * math.cos(angle)
+        y_outer = 1.22 * math.sin(angle)
+        ha = "left" if math.cos(angle) >= 0 else "right"
+        offset = 0.05 if ha == "left" else -0.05
+
+        ax.annotate(
+            "",
+            xy=(x_inner, y_inner),
+            xytext=(x_outer, y_outer),
+            arrowprops=dict(arrowstyle="-", color=color, lw=2, shrinkA=6, shrinkB=0),
+            zorder=4,
+        )
+        ax.text(
+            x_outer + offset,
+            y_outer + 0.1,
+            label,
+            ha=ha,
+            va="center",
+            fontsize=13,
+            fontweight="bold",
+            color=COLORS["text"],
+            zorder=6,
+        )
+        ax.text(
+            x_outer + offset,
+            y_outer - 0.04,
+            f"{count} jogadores  ·  {pct:.1f}%",
+            ha=ha,
+            va="center",
+            fontsize=10.5,
+            color=COLORS["muted"],
+            zorder=6,
+        )
+
+    ax.set_xlim(-1.5, 1.5)
+    ax.set_ylim(-1.15, 1.15)
+    ax.set_aspect("equal")
+    ax.axis("off")
+
+    panel = fig.add_axes([0.68, 0.22, 0.26, 0.58])
+    panel.set_facecolor(COLORS["bg"])
+    panel.axis("off")
+
+    panel.add_patch(
+        FancyBboxPatch(
+            (0, 0),
+            1,
+            1,
+            transform=panel.transAxes,
+            boxstyle="round,pad=0.02,rounding_size=0.03",
+            facecolor=COLORS["card"],
+            edgecolor="#DDE8E0",
+            linewidth=1.5,
+        )
+    )
+
+    panel.text(0.5, 0.9, "Resumo", ha="center", va="top", fontsize=13, fontweight="bold", color=COLORS["text"], transform=panel.transAxes)
+
+    for idx, (label, count, pct, color) in enumerate(meta):
+        y = 0.68 - idx * 0.28
+        panel.add_patch(Circle((0.12, y), 0.045, transform=panel.transAxes, facecolor=color, edgecolor="none"))
+        panel.text(0.22, y + 0.03, label, ha="left", va="center", fontsize=11, fontweight="bold", color=COLORS["text"], transform=panel.transAxes)
+        panel.text(0.22, y - 0.08, f"{count} jogadores", ha="left", va="center", fontsize=10, color=COLORS["muted"], transform=panel.transAxes)
+        panel.text(0.88, y, f"{pct:.1f}%", ha="right", va="center", fontsize=16, fontweight="bold", color=color, transform=panel.transAxes)
+
+    panel.text(
+        0.5,
+        0.1,
+        f"Diferença: {abs(values[0] - values[1])} jogadores\na mais na Série B",
+        ha="center",
+        va="center",
+        fontsize=9.5,
+        color=COLORS["muted"],
+        transform=panel.transAxes,
+        linespacing=1.5,
+    )
+
     return fig
 
 
