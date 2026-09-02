@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import io
 import re
-from datetime import datetime
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -300,7 +299,7 @@ def chart_clubs_column_with_logos(stats: pd.DataFrame, title: str, subtitle: str
 
     logos = [get_team_logo(team) for team in teams]
     for idx, (team, logo) in enumerate(zip(teams, logos)):
-        _add_logo_below_bar(ax, idx, team, logo, zoom=0.18)
+        _add_logo_below_bar(ax, idx, team, logo, zoom=0.11)
 
     ax.tick_params(axis="x", length=0)
     fig.subplots_adjust(top=0.86, bottom=0.18)
@@ -416,7 +415,6 @@ def build_pdf(df_b: pd.DataFrame, df_c: pd.DataFrame, df_all: pd.DataFrame) -> P
     ax_cover.axis("off")
     cover.text(0.5, 0.62, "Relatório de Jogadores Sub-20", ha="center", fontsize=24, fontweight="bold", color="#1B4332", transform=ax_cover.transAxes)
     cover.text(0.5, 0.54, "Séries B e C — Campeonato Brasileiro", ha="center", fontsize=14, color="#555555", transform=ax_cover.transAxes)
-    cover.text(0.5, 0.46, f"Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}", ha="center", fontsize=11, color="#777777", transform=ax_cover.transAxes)
     cover.text(
         0.5,
         0.34,
