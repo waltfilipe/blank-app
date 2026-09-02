@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import io
-import math
 import re
 from datetime import datetime
 from pathlib import Path
@@ -80,7 +79,11 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 def club_stats(df: pd.DataFrame) -> pd.DataFrame:
     return (
         df.groupby("Team")
-        .agg(jogadores=("Name", "count"), media_minutos=("Minutes played", "mean"))
+        .agg(
+            jogadores=("Name", "count"),
+            media_minutos=("Minutes played", "mean"),
+            minutos_total=("Minutes played", "sum"),
+        )
         .sort_values("jogadores", ascending=False)
         .reset_index()
     )
@@ -150,7 +153,7 @@ def chart_player_quantity_pie(df_b: pd.DataFrame, df_c: pd.DataFrame) -> plt.Fig
     fig.patch.set_facecolor(COLORS["bg"])
     _style_page(fig, "1. Quantidade de jogadores sub-20", "Distribuição por divisão")
 
-    ax = fig.add_axes([0.06, 0.12, 0.58, 0.72])
+    ax = fig.add_axes([0.12, 0.28, 0.76, 0.58])
     ax.set_facecolor(COLORS["bg"])
 
     values = [len(df_b), len(df_c)]
@@ -184,89 +187,59 @@ def chart_player_quantity_pie(df_b: pd.DataFrame, df_c: pd.DataFrame) -> plt.Fig
     ax.text(0, -0.06, str(total), ha="center", va="center", fontsize=36, fontweight="bold", color=COLORS["text"], zorder=6)
     ax.text(0, -0.27, "jogadores sub-20", ha="center", va="center", fontsize=10, color=COLORS["muted"], zorder=6)
 
-    meta = [
-        ("Série B", values[0], pct_b, palette[0]),
-        ("Série C", values[1], pct_c, palette[1]),
-    ]
-    for wedge, (label, count, pct, color) in zip(wedges, meta):
-        angle = math.radians((wedge.theta2 + wedge.theta1) / 2)
-        x_inner = 0.86 * math.cos(angle)
-        y_inner = 0.86 * math.sin(angle)
-        x_outer = 1.22 * math.cos(angle)
-        y_outer = 1.22 * math.sin(angle)
-        ha = "left" if math.cos(angle) >= 0 else "right"
-        offset = 0.05 if ha == "left" else -0.05
-
-        ax.annotate(
-            "",
-            xy=(x_inner, y_inner),
-            xytext=(x_outer, y_outer),
-            arrowprops=dict(arrowstyle="-", color=color, lw=2, shrinkA=6, shrinkB=0),
-            zorder=4,
-        )
-        ax.text(
-            x_outer + offset,
-            y_outer + 0.1,
-            label,
-            ha=ha,
-            va="center",
-            fontsize=13,
-            fontweight="bold",
-            color=COLORS["text"],
-            zorder=6,
-        )
-        ax.text(
-            x_outer + offset,
-            y_outer - 0.04,
-            f"{count} jogadores  ·  {pct:.1f}%",
-            ha=ha,
-            va="center",
-            fontsize=10.5,
-            color=COLORS["muted"],
-            zorder=6,
-        )
-
-    ax.set_xlim(-1.5, 1.5)
+    ax.set_xlim(-1.2, 1.2)
     ax.set_ylim(-1.15, 1.15)
     ax.set_aspect("equal")
     ax.axis("off")
 
-    panel = fig.add_axes([0.68, 0.22, 0.26, 0.58])
-    panel.set_facecolor(COLORS["bg"])
-    panel.axis("off")
+    meta = [
+        ("Série B", values[0], pct_b, palette[0]),
+        ("Série C", values[1], pct_c, palette[1]),
+    ]
 
-    panel.add_patch(
-        FancyBboxPatch(
-            (0, 0),
-            1,
-            1,
-            transform=panel.transAxes,
-            boxstyle="round,pad=0.02,rounding_size=0.03",
-            facecolor=COLORS["card"],
-            edgecolor="#DDE8E0",
-            linewidth=1.5,
-        )
-    )
-
-    panel.text(0.5, 0.9, "Resumo", ha="center", va="top", fontsize=13, fontweight="bold", color=COLORS["text"], transform=panel.transAxes)
+    legend_ax = fig.add_axes([0.08, 0.08, 0.84, 0.14])
+    legend_ax.set_facecolor(COLORS["bg"])
+    legend_ax.axis("off")
 
     for idx, (label, count, pct, color) in enumerate(meta):
-        y = 0.68 - idx * 0.28
-        panel.add_patch(Circle((0.12, y), 0.045, transform=panel.transAxes, facecolor=color, edgecolor="none"))
-        panel.text(0.22, y + 0.03, label, ha="left", va="center", fontsize=11, fontweight="bold", color=COLORS["text"], transform=panel.transAxes)
-        panel.text(0.22, y - 0.08, f"{count} jogadores", ha="left", va="center", fontsize=10, color=COLORS["muted"], transform=panel.transAxes)
-        panel.text(0.88, y, f"{pct:.1f}%", ha="right", va="center", fontsize=16, fontweight="bold", color=color, transform=panel.transAxes)
+        x0 = 0.04 + idx * 0.5
+        legend_ax.add_patch(
+            FancyBboxPatch(
+                (x0, 0.08),
+                0.44,
+                0.84,
+                transform=legend_ax.transAxes,
+                boxstyle="round,pad=0.015,rounding_size=0.02",
+                facecolor=COLORS["card"],
+                edgecolor="#DDE8E0",
+                linewidth=1.4,
+            )
+        )
+        legend_ax.add_patch(
+            FancyBboxPatch(
+                (x0 + 0.03, 0.2),
+                0.035,
+                0.6,
+                transform=legend_ax.transAxes,
+                boxstyle="square,pad=0",
+                facecolor=color,
+                edgecolor="none",
+            )
+        )
+        legend_ax.text(x0 + 0.08, 0.72, label, ha="left", va="center", fontsize=12, fontweight="bold", color=COLORS["text"], transform=legend_ax.transAxes)
+        legend_ax.text(x0 + 0.08, 0.48, f"{count} jogadores", ha="left", va="center", fontsize=10.5, color=COLORS["muted"], transform=legend_ax.transAxes)
+        legend_ax.text(x0 + 0.08, 0.24, f"{pct:.1f}% do total", ha="left", va="center", fontsize=10, color=color, fontweight="bold", transform=legend_ax.transAxes)
+        legend_ax.text(x0 + 0.38, 0.5, f"{pct:.1f}%", ha="center", va="center", fontsize=22, fontweight="bold", color=color, transform=legend_ax.transAxes)
 
-    panel.text(
+    legend_ax.text(
         0.5,
-        0.1,
-        f"Diferença: {abs(values[0] - values[1])} jogadores\na mais na Série B",
+        -0.02,
+        f"Diferença de {abs(values[0] - values[1])} jogadores entre as divisões (Série B com maior volume)",
         ha="center",
-        va="center",
+        va="top",
         fontsize=9.5,
         color=COLORS["muted"],
-        transform=panel.transAxes,
-        linespacing=1.5,
+        transform=legend_ax.transAxes,
     )
 
     return fig
@@ -327,11 +300,10 @@ def chart_clubs_column_with_logos(stats: pd.DataFrame, title: str, subtitle: str
 
     logos = [get_team_logo(team) for team in teams]
     for idx, (team, logo) in enumerate(zip(teams, logos)):
-        _add_logo_below_bar(ax, idx, team, logo, zoom=0.13)
-        short = team if len(team) <= 14 else team.replace(" FC", "").replace(" SC", "")[:12] + "."
-        ax.text(idx, -0.02, short, transform=ax.get_xaxis_transform(), ha="center", va="top", fontsize=7.5, rotation=35, color="#333333")
+        _add_logo_below_bar(ax, idx, team, logo, zoom=0.18)
 
-    fig.subplots_adjust(top=0.86, bottom=0.24)
+    ax.tick_params(axis="x", length=0)
+    fig.subplots_adjust(top=0.86, bottom=0.18)
     return fig
 
 
@@ -366,6 +338,61 @@ def chart_minute_distribution(df_b: pd.DataFrame, df_c: pd.DataFrame) -> plt.Fig
     return fig
 
 
+def chart_team_tables(stats: pd.DataFrame, title: str, subtitle: str, rows_per_page: int = 22) -> list[plt.Figure]:
+    headers = ["#", "Clube", "Jogadores", "Média min", "Total min"]
+    figures: list[plt.Figure] = []
+
+    for page_start in range(0, len(stats), rows_per_page):
+        page_data = stats.iloc[page_start : page_start + rows_per_page]
+        page_num = page_start // rows_per_page + 1
+        total_pages = (len(stats) + rows_per_page - 1) // rows_per_page
+
+        fig, ax = plt.subplots(figsize=(11, 8.5))
+        _style_page(fig, title, f"{subtitle} — página {page_num}/{total_pages}")
+        ax.axis("off")
+
+        rows = []
+        for rank, row in enumerate(page_data.itertuples(), start=page_start + 1):
+            rows.append(
+                [
+                    str(rank),
+                    row.Team,
+                    str(int(row.jogadores)),
+                    f"{row.media_minutos:.1f}",
+                    str(int(row.minutos_total)),
+                ]
+            )
+
+        table = ax.table(
+            cellText=rows,
+            colLabels=headers,
+            loc="center",
+            cellLoc="center",
+            colWidths=[0.06, 0.44, 0.14, 0.16, 0.16],
+        )
+        table.auto_set_font_size(False)
+        table.set_fontsize(9.5)
+        table.scale(1, 1.55)
+
+        for (row_idx, col_idx), cell in table.get_celld().items():
+            cell.set_edgecolor("#DDE8E0")
+            if row_idx == 0:
+                cell.set_facecolor(COLORS["serie_b"])
+                cell.set_text_props(color="white", fontweight="bold")
+            elif row_idx % 2 == 0:
+                cell.set_facecolor("#F1F8F4")
+            else:
+                cell.set_facecolor(COLORS["card"])
+            if col_idx == 1 and row_idx > 0:
+                cell.get_text().set_ha("left")
+                cell.PAD = 0.04
+
+        fig.subplots_adjust(top=0.86, bottom=0.06, left=0.06, right=0.94)
+        figures.append(fig)
+
+    return figures
+
+
 def build_pdf(df_b: pd.DataFrame, df_c: pd.DataFrame, df_all: pd.DataFrame) -> Path:
     stats_b = club_stats(df_b)
     stats_c = club_stats(df_c)
@@ -377,6 +404,11 @@ def build_pdf(df_b: pd.DataFrame, df_c: pd.DataFrame, df_all: pd.DataFrame) -> P
         chart_clubs_column_with_logos(stats_c, "2. Clubes que mais utilizam jogadores sub-20", "Série C — Top 10", COLORS["serie_c"]),
         chart_clubs_column_with_logos(stats_all, "2.1 Destaque geral (Séries B e C)", "Top 10 combinado", COLORS["accent"]),
         chart_minute_distribution(df_b, df_c),
+    ]
+    tables = [
+        *chart_team_tables(stats_b, "4. Tabelas por clube", "Série B — todos os times"),
+        *chart_team_tables(stats_c, "4. Tabelas por clube", "Série C — todos os times"),
+        *chart_team_tables(stats_all, "4. Tabelas por clube", "Geral (Séries B e C) — todos os times"),
     ]
 
     cover, ax_cover = plt.subplots(figsize=(11, 8.5))
@@ -399,9 +431,13 @@ def build_pdf(df_b: pd.DataFrame, df_c: pd.DataFrame, df_all: pd.DataFrame) -> P
         pdf.savefig(cover, facecolor=COLORS["bg"])
         for chart in charts:
             pdf.savefig(chart, facecolor=COLORS["bg"])
+        for table in tables:
+            pdf.savefig(table, facecolor=COLORS["bg"])
         plt.close(cover)
         for chart in charts:
             plt.close(chart)
+        for table in tables:
+            plt.close(table)
 
     return OUTPUT_FILE
 
