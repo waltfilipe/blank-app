@@ -252,27 +252,6 @@ REPORTS: dict[str, dict[str, Any]] = {
                 ],
             },
             {
-                "title": "Cross Defending",
-                "subtitle": "Reference points, scanning and cutting out crosses.",
-                "tag": "Scanning  |  Reference  |  Interceptions",
-                "plays": [
-                    ("1", "Be careful not to rely only on the opponent as your reference.", "red"),
-                    ("2", "Again, uses only the opponent as reference.", "red"),
-                    ("3", "Split attention between space and opponent to cut out crosses.", "red"),
-                    ("4", "Good scanning and positioning.", "green"),
-                    (
-                        "5",
-                        "Good use of the opponent as reference, good use of the arm to mark the reference.",
-                        "green",
-                    ),
-                    (
-                        "6",
-                        "Good scanning and reading of the cross, disrupting the opponent's jump.",
-                        "green",
-                    ),
-                ],
-            },
-            {
                 "title": "Defensive Transition",
                 "subtitle": "Box defending, depth, scanning and 1v1 duels in transition.",
                 "tag": "Box defending  |  1v1  |  Scanning",
@@ -293,6 +272,27 @@ REPORTS: dict[str, dict[str, Any]] = {
                         "Good 1v1 in transition and open field, directing the opponent to the byline (opponent is "
                         "right-footed). Good use of the arm in the duel. Good distance from the ball, preventing a "
                         "shot or cross.",
+                        "green",
+                    ),
+                ],
+            },
+            {
+                "title": "Cross Defending",
+                "subtitle": "Reference points, scanning and cutting out crosses.",
+                "tag": "Scanning  |  Reference  |  Interceptions",
+                "plays": [
+                    ("1", "Be careful not to rely only on the opponent as your reference.", "red"),
+                    ("2", "Again, uses only the opponent as reference.", "red"),
+                    ("3", "Split attention between space and opponent to cut out crosses.", "red"),
+                    ("4", "Good scanning and positioning.", "green"),
+                    (
+                        "5",
+                        "Good use of the opponent as reference, good use of the arm to mark the reference.",
+                        "green",
+                    ),
+                    (
+                        "6",
+                        "Good scanning and reading of the cross, disrupting the opponent's jump.",
                         "green",
                     ),
                 ],
