@@ -29,10 +29,17 @@ CARD_BORDER = (225, 228, 234)
 RULE = (228, 231, 237)
 
 RATINGS = {
-    "green": {"color": (37, 158, 78), "label": "Good play"},
-    "yellow": {"color": (233, 168, 45), "label": "Mixed - strengths and errors"},
-    "red": {"color": (214, 62, 51), "label": "Errors / missed opportunity"},
+    "green": {"color": (37, 158, 78), "label": "Good play", "accent": (37, 158, 78)},
+    "yellow": {"color": (233, 168, 45), "label": "Mixed - strengths and errors", "accent": (233, 168, 45)},
+    "red": {"color": (214, 62, 51), "label": "Errors / missed opportunity", "accent": (214, 62, 51)},
+    "white": {
+        "color": (255, 255, 255),
+        "label": "Teammate clip - not rated",
+        "accent": (176, 182, 192),
+    },
 }
+
+TALLY_RATINGS = ("green", "yellow", "red")
 
 PAGE_W, PAGE_H = 297.0, 210.0
 MARGIN = 20.0
@@ -50,23 +57,23 @@ TOPICS: list[dict] = [
             (
                 "3",
                 "Left-foot control, still clears the situation. Poor finish - the far side offered stronger options.",
-                "yellow",
+                "red",
             ),
             (
                 "4",
                 "Space to drive and a teammate in a potential overload. Right-foot control sets up a good 1v1.",
-                "green",
+                "yellow",
             ),
             (
                 "5",
                 "Ball too far from the body; the left back is ball-watching - good chance to run in behind.",
-                "yellow",
+                "red",
             ),
             ("6", "Again too far from the left back - no option to penetrate.", "red"),
             (
                 "7",
                 "Poor control, but escapes the press. Could have carried further, although the pass was not a bad decision.",
-                "yellow",
+                "red",
             ),
             ("8", "Play through the inside channel - keep the ball closer to the foot.", "red"),
         ],
@@ -78,21 +85,21 @@ TOPICS: list[dict] = [
         "plays": [
             ("1", "Chance to run into the space in behind the left back.", "red"),
             ("2", "Why not switch the play wide? A numerical advantage was available.", "red"),
-            ("3", "Left-foot control.", "yellow"),
+            ("3", "Left-foot control.", "red"),
             (
                 "4",
                 "Could carry longer to commit the defender and delay, allowing a teammate to run in behind.",
-                "yellow",
+                "red",
             ),
             (
                 "5",
                 "Good tackle; carrying the ball too far from the foot invited the challenge.",
-                "yellow",
+                "red",
             ),
             (
                 "6 & 7",
                 "More examples of teammates carrying the ball away from the foot and being dispossessed.",
-                "red",
+                "white",
             ),
         ],
     },
@@ -104,13 +111,13 @@ TOPICS: list[dict] = [
             (
                 "1",
                 "Recognise the teammate already in space; the left back is ball-watching - chance to penetrate.",
-                "yellow",
+                "red",
             ),
             (
                 "2",
                 "Play to feet? Identify the teammate with the advantage and use it to create an outside-to-inside "
                 "option - but the space between the lines was not occupied.",
-                "yellow",
+                "red",
             ),
             (
                 "3",
@@ -175,7 +182,18 @@ class ReviewPDF(FPDF):
         return sum(self.get_string_width(c) + tracking for c in text) - tracking
 
     def dot(self, cx: float, cy: float, rating: str, diameter: float = 4.2) -> None:
-        color = RATINGS[rating]["color"]
+        meta = RATINGS[rating]
+        color = meta["color"]
+        if rating == "white":
+            self.set_fill_color(120, 128, 140)
+            self.ellipse(
+                cx - diameter / 2 - 1.0, cy - diameter / 2 - 1.0, diameter + 2.0, diameter + 2.0, style="F"
+            )
+            self.set_fill_color(*color)
+            self.set_draw_color(160, 168, 180)
+            self.set_line_width(0.35)
+            self.ellipse(cx - diameter / 2, cy - diameter / 2, diameter, diameter, style="DF")
+            return
         halo = tuple(min(255, c + 150) for c in color)
         self.set_fill_color(*halo)
         self.ellipse(
@@ -358,7 +376,7 @@ class ReviewPDF(FPDF):
             self.cell(190, 5, topic["subtitle"])
 
     def _band_tally(self, plays: list[tuple[str, str, str]]) -> None:
-        counts = {key: sum(1 for _, _, r in plays if r == key) for key in RATINGS}
+        counts = {key: sum(1 for _, _, r in plays if r == key) for key in TALLY_RATINGS}
         chip_w, chip_h, gap = 17.0, 9.0, 4.0
         visible = [(k, v) for k, v in counts.items() if v]
         total_w = len(visible) * chip_w + (len(visible) - 1) * gap
@@ -405,7 +423,7 @@ class ReviewPDF(FPDF):
         card_w = PAGE_W - 2 * MARGIN
         for (num, text, rating), height in zip(plays, heights):
             self.panel(MARGIN, y, card_w, height, fill=CARD_BG, border=CARD_BORDER, radius=2.2)
-            self.set_fill_color(*RATINGS[rating]["color"])
+            self.set_fill_color(*RATINGS[rating]["accent"])
             try:
                 self.rect(MARGIN, y, accent_w, height, style="F", round_corners=("TOP_LEFT", "BOTTOM_LEFT"), corner_radius=2.2)
             except TypeError:
