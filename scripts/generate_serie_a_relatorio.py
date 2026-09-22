@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import re
 import statistics
+import textwrap
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
@@ -58,6 +59,9 @@ RULE = "#DFE4E9"
 CANVAS = "#FFFFFF"
 BAND = "#F4F6F8"
 NAVY = "#0F2A3D"
+
+REPORT_TITLE = "Análise de Minutos e Vendas - Atletas Sub-20 e Sub-23"
+REPORT_TITLE_LINES = "Análise de Minutos\ne Vendas - Atletas\nSub-20 e Sub-23"
 ON_NAVY_MUTED = "#A9BCCB"
 
 C_U20 = "#1F5F8B"
@@ -502,26 +506,20 @@ def page_intro(pdf: PdfPages, rows: list[dict], period_a: dict, period_b: dict,
              color=ON_NAVY_MUTED, fontweight="bold")
     fig.add_artist(Rectangle((left, 0.868), 0.06, 0.005, transform=fig.transFigure,
                              facecolor=C_U23, edgecolor="none"))
-    fig.text(left, 0.835, "Atletas jovens\nna Série A", fontsize=33, color=CANVAS,
-             fontweight="bold", va="top", linespacing=1.1)
-    fig.text(left, 0.655, "Minutos em campo e vendas ao exterior\nde sub-20 e sub-23 · 2019 a 2026",
-             fontsize=12, color=ON_NAVY_MUTED, va="top", linespacing=1.5)
+    fig.text(left, 0.835, REPORT_TITLE_LINES, fontsize=27, color=CANVAS,
+             fontweight="bold", va="top", linespacing=1.15)
+    fig.text(left, 0.585, "Série A do Campeonato Brasileiro · 2019 a 2026",
+             fontsize=11.5, color=ON_NAVY_MUTED, va="top")
 
-    fig.add_artist(Rectangle((left, 0.365), 0.004, 0.155, transform=fig.transFigure,
+    fig.text(left, 0.43, " ".join("INSIGHT"), fontsize=8, color=C_U23, fontweight="bold")
+    fig.add_artist(Rectangle((left, 0.175), 0.004, 0.225, transform=fig.transFigure,
                              facecolor=C_U23, edgecolor="none"))
-    fig.text(left + 0.022, 0.52, "Os jovens jogam menos\nno Brasileirão e são\nvendidos mais para fora.",
-             fontsize=17, color=CANVAS, va="top", linespacing=1.4, fontweight="bold")
-
-    scope = [
-        ("Sub-20", "nascidos em Y−20 ou depois"),
-        ("Sub-23", "nascidos em Y−23 ou depois"),
-        ("Minutos", "FotMob · sem goleiros · 2026 parcial"),
-        ("Vendas", "Transfermarkt · destino fora do Brasil"),
-    ]
-    for idx, (key, value) in enumerate(scope):
-        y = 0.245 - idx * 0.042
-        fig.text(left, y, key, fontsize=9, color=CANVAS, fontweight="bold", va="top")
-        fig.text(left + 0.075, y, value, fontsize=9, color=ON_NAVY_MUTED, va="top")
+    fig.text(
+        left + 0.022, 0.40,
+        "Os números mostram uma queda\nna utilização desses atletas,\nmas será pelo aumento de\n"
+        "estrangeiros ou por vendas\ncada vez mais precoces?",
+        fontsize=14, color=CANVAS, va="top", linespacing=1.5, fontweight="bold",
+    )
 
     right = panel_w + 0.055
     fig.text(right, 0.905, " ".join("PRINCIPAIS ACHADOS"), fontsize=8,
@@ -581,6 +579,47 @@ def page_intro(pdf: PdfPages, rows: list[dict], period_a: dict, period_b: dict,
         if idx < len(findings) - 1:
             fig.add_artist(Line2D([right, MARGIN_R], [top - row_h + 0.022] * 2,
                                   color=RULE, linewidth=0.8, transform=fig.transFigure))
+
+    save_page(pdf, fig)
+
+
+def page_methodology(pdf: PdfPages) -> None:
+    fig = new_page()
+    draw_header(fig, "Metodologia", "Como os números foram apurados",
+                "Fontes, critérios de recorte e limitações da amostra.")
+
+    blocks = [
+        ("Fontes", "Minutos: ranking mins_played do FotMob para a Série A, uma consulta por "
+                   "temporada, de 2019 a 2026. Vendas: página de transferências da Série A no "
+                   "Transfermarkt, por temporada, de 2019 a 2025."),
+        ("Sub-20 e sub-23", "No ano Y, atletas nascidos em Y−20 ou depois (sub-20) e em Y−23 "
+                            "ou depois (sub-23). Em 2019: nascidos desde 1999 e desde 1996."),
+        ("Goleiros", "Goleiros ficam fora da análise de minutos: os percentuais consideram apenas "
+                     "os minutos jogados por atletas de linha."),
+        ("Vendas", "Conta saídas com valor de transferência registrado e clube de destino fora "
+                   "do Brasil; empréstimos e saídas sem custo ficam de fora. A idade é a "
+                   "registrada pelo Transfermarkt no momento da transferência."),
+        ("Temporada 2026", "Nos minutos, 2026 entra como temporada parcial e é comparada apenas "
+                           "por percentuais. Nas vendas, 2026 fica de fora porque a janela segue "
+                           "aberta: o bloco recente cobre as três janelas completas de 2023 a 2025."),
+        ("Comparativos", "Blocos comparados por média e mediana: dos percentuais anuais de minutos "
+                         "e do número de vendas por janela, com a variação das vendas em % sobre "
+                         "o bloco anterior."),
+    ]
+
+    y = 0.80
+    line_h = 0.029
+    for title, body in blocks:
+        wrapped = textwrap.fill(body, width=86)
+        fig.text(MARGIN_L, y, title, fontsize=11, color=INK, fontweight="bold", va="top")
+        fig.text(MARGIN_L + 0.20, y, wrapped, fontsize=10.5,
+                 color=MUTED, va="top", linespacing=1.55)
+        rule_y = y - wrapped.count("\n") * line_h - 0.038
+        fig.add_artist(
+            Line2D([MARGIN_L, MARGIN_R], [rule_y, rule_y],
+                   color=RULE, linewidth=0.7, transform=fig.transFigure)
+        )
+        y = rule_y - 0.030
 
     save_page(pdf, fig)
 
@@ -1023,7 +1062,7 @@ def generate_report() -> Path:
     with PdfPages(REPORT_PATH) as pdf:
         pdf.infodict().update(
             {
-                "Title": "Série A — Atletas jovens: minutos e vendas (2019–2026)",
+                "Title": REPORT_TITLE,
                 "Subject": "Minutos de sub-20/sub-23 e vendas ao exterior na Série A",
                 "Creator": "scripts/generate_serie_a_relatorio.py",
             }
@@ -1044,6 +1083,7 @@ def generate_report() -> Path:
         page_sales_lines(pdf, sales)
         page_sales_bars(pdf, sales_a, sales_b)
         page_sales_tables(pdf, sales)
+        page_methodology(pdf)
 
     meta_path = REPORT_PATH.with_suffix(".json")
     meta_path.write_text(
