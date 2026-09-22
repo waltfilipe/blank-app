@@ -206,15 +206,6 @@
       "sales_abroad_u20": 21,
       "sales_abroad_u23": 39,
       "partial": false
-    },
-    {
-      "year": 2026,
-      "departures": 244,
-      "sales": 25,
-      "sales_abroad": 19,
-      "sales_abroad_u20": 4,
-      "sales_abroad_u23": 10,
-      "partial": true
     }
   ],
   "sales_period_a": {
@@ -225,6 +216,7 @@
       2022
     ],
     "label": "2019–2022",
+    "seasons": 4,
     "avg_u20": 8.25,
     "avg_u23": 22.0,
     "med_u20": 8.0,
@@ -234,13 +226,13 @@
     "years": [
       2023,
       2024,
-      2025,
-      2026
+      2025
     ],
-    "label": "2023–2026",
-    "avg_u20": 13.25,
-    "avg_u23": 26.5,
-    "med_u20": 14.0,
-    "med_u23": 28.5
+    "label": "2023–2025",
+    "seasons": 3,
+    "avg_u20": 16.333333333333332,
+    "avg_u23": 32.0,
+    "med_u20": 17,
+    "med_u23": 31
   }
 }

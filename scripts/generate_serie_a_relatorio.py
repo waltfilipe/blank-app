@@ -45,6 +45,10 @@ SEASONS = {
 PERIOD_A = [2019, 2020, 2021, 2022]
 PERIOD_B = [2023, 2024, 2025, 2026]
 
+# Vendas: 2026 tem janela incompleta, então o bloco recente usa só temporadas fechadas.
+SALES_PERIOD_A = [2019, 2020, 2021, 2022]
+SALES_PERIOD_B = [2023, 2024, 2025]
+
 PAGE_SIZE = (11.69, 8.27)  # A4 paisagem
 MARGIN_L = 0.062
 MARGIN_R = 0.938
@@ -327,6 +331,7 @@ def aggregate_sales_period(rows: list[dict], years: list[int]) -> dict:
     return {
         "years": years,
         "label": f"{years[0]}–{years[-1]}",
+        "seasons": n,
         "avg_u20": sum(u20) / n,
         "avg_u23": sum(u23) / n,
         "med_u20": statistics.median(u20),
@@ -503,7 +508,7 @@ def page_cover(pdf: PdfPages, period_a: dict, period_b: dict,
     fig.text(MARGIN_L, 0.625,
              "Duas leituras complementares sobre sub-20 e sub-23: quanto esses atletas jogam\n"
              "no Brasileirão e quantos são negociados com clubes de fora do país, ano a ano\n"
-             "e em dois blocos de quatro temporadas.",
+             "e em blocos comparáveis de temporadas.",
              fontsize=12, color=INK, va="top", linespacing=1.7)
 
     cards = [
@@ -516,7 +521,8 @@ def page_cover(pdf: PdfPages, period_a: dict, period_b: dict,
          f"{fmt_delta_pp(period_a['avg_u23_pct'], period_b['avg_u23_pct'])}",
          C_U23),
         ("Vendas sub-23 ao exterior", fmt_num(sales_b["avg_u23"]),
-         f"média por janela · antes: {fmt_num(sales_a['avg_u23'])}", C_U23),
+         f"média por janela em {sales_b['label']} · antes: {fmt_num(sales_a['avg_u23'])}",
+         C_U23),
     ]
     width = 0.268
     gap = 0.021
@@ -551,21 +557,26 @@ def page_methodology(pdf: PdfPages, rows: list[dict], page: int, total: int) -> 
         ("Idade nas vendas", "Usa a idade registrada pelo Transfermarkt no momento da "
                              "transferência, critério do próprio site."),
         ("Comparativos", "Entre blocos, minutos aparecem só como média e mediana dos percentuais "
-                         "anuais — nunca como soma de minutos. Vendas usam média e mediana por janela."),
-        ("Limitação", "A temporada 2026 segue em andamento em ambas as fontes e está marcada "
-                      "como parcial nos gráficos e tabelas."),
+                         "anuais — nunca como soma de minutos. Vendas usam média e mediana por janela, "
+                         "com a variação expressa em % sobre o bloco anterior."),
+        ("Limitação", "A temporada 2026 segue em andamento. Nos minutos ela aparece marcada como "
+                      "parcial; nas vendas fica de fora, e o bloco recente cobre as três janelas "
+                      "fechadas de 2023 a 2025."),
     ]
 
-    y = 0.79
+    y = 0.80
+    line_h = 0.029
     for title, body in blocks:
+        wrapped = textwrap.fill(body, width=86)
         fig.text(MARGIN_L, y, title, fontsize=11, color=INK, fontweight="bold", va="top")
-        fig.text(MARGIN_L + 0.20, y, textwrap.fill(body, width=86), fontsize=10.5,
+        fig.text(MARGIN_L + 0.20, y, wrapped, fontsize=10.5,
                  color=MUTED, va="top", linespacing=1.55)
-        y -= 0.112
+        rule_y = y - wrapped.count("\n") * line_h - 0.038
         fig.add_artist(
-            Line2D([MARGIN_L, MARGIN_R], [y + 0.042, y + 0.042],
+            Line2D([MARGIN_L, MARGIN_R], [rule_y, rule_y],
                    color=RULE, linewidth=0.7, transform=fig.transFigure)
         )
+        y = rule_y - 0.030
 
     draw_footer(fig, page, total)
     save_page(pdf, fig)
@@ -706,8 +717,8 @@ def draw_season_table(
     top: float,
     highlight_header: str,
     highlight_values: list[str],
-    side_header: str,
-    side_values: list[str],
+    side_header: str | None = None,
+    side_values: list[str] | None = None,
     x0: float = MARGIN_L,
     x1: float = MARGIN_R,
     row_h: float = 0.052,
@@ -715,9 +726,10 @@ def draw_season_table(
     """Desenha tabela de uma categoria. Retorna y final abaixo da tabela."""
     span = x1 - x0
     season_x = x0
-    highlight_x = x0 + 0.46 * span
+    has_side = bool(side_header and side_values)
+    highlight_x = x0 + (0.46 if has_side else 0.72) * span
     side_x = x1
-    band_width = 0.3 * span
+    band_width = (0.3 if has_side else 0.45) * span
 
     if title:
         fig.text(season_x, top, title, fontsize=12, color=accent,
@@ -737,8 +749,9 @@ def draw_season_table(
              ha="left", fontweight="bold", zorder=1)
     fig.text(highlight_x, header_y, highlight_header, fontsize=8.5, color=accent,
              ha="center", fontweight="bold", zorder=1)
-    fig.text(side_x, header_y, side_header, fontsize=8.5, color=MUTED,
-             ha="right", fontweight="bold", zorder=1)
+    if side_header:
+        fig.text(side_x, header_y, side_header, fontsize=8.5, color=MUTED,
+                 ha="right", fontweight="bold", zorder=1)
     fig.add_artist(
         Line2D([x0, x1], [header_y - 0.021, header_y - 0.021],
                color=accent, linewidth=1.4, transform=fig.transFigure)
@@ -767,8 +780,9 @@ def draw_season_table(
                  ha="left", fontweight="bold", zorder=1)
         fig.text(highlight_x, y, highlight_values[idx], fontsize=11.5, color=accent,
                  ha="center", fontweight="bold", zorder=1)
-        fig.text(side_x, y, side_values[idx], fontsize=10, color=MUTED,
-                 ha="right", zorder=1)
+        if side_values:
+            fig.text(side_x, y, side_values[idx], fontsize=10, color=MUTED,
+                     ha="right", zorder=1)
 
     return header_y - 0.055 - len(rows) * row_h - 0.028
 
@@ -833,11 +847,10 @@ def page_sales_lines(pdf: PdfPages, sales: list[dict], page: int, total: int) ->
                 "Atletas sub-20 e sub-23 vendidos por clubes da Série A para clubes de fora do Brasil.")
 
     years = [r["year"] for r in sales]
-    partial_year = next((r["year"] for r in sales if r["partial"]), None)
 
     plot_left = MARGIN_L + 0.038
     plot_width = MARGIN_R - plot_left - 0.035
-    ax = fig.add_axes((plot_left, 0.165, plot_width, 0.58))
+    ax = fig.add_axes((plot_left, 0.215, plot_width, 0.53))
 
     for key, color, label in (("sales_abroad_u20", C_U20, "Sub-20"),
                               ("sales_abroad_u23", C_U23, "Sub-23")):
@@ -858,11 +871,6 @@ def page_sales_lines(pdf: PdfPages, sales: list[dict], page: int, total: int) ->
     ax.set_xticks(years)
     ax.set_ylim(0, max(r["sales_abroad_u23"] for r in sales) * 1.25)
 
-    if partial_year is not None:
-        ax.axvspan(partial_year - 0.4, years[-1] + 0.55, color=BAND, zorder=0)
-        ax.text(partial_year, 0.93, "parcial", transform=ax.get_xaxis_transform(),
-                fontsize=8, color=MUTED, ha="center", va="center")
-
     fig.legend(
         handles=[
             Line2D([], [], color=C_U20, linewidth=2.4, marker="o", markersize=5.5,
@@ -875,9 +883,10 @@ def page_sales_lines(pdf: PdfPages, sales: list[dict], page: int, total: int) ->
     )
 
     fig.text(
-        MARGIN_L, 0.098,
-        "Considera apenas saídas registradas com valor de transferência e clube de destino fora do Brasil.",
-        fontsize=9.5, color=MUTED, va="top",
+        MARGIN_L, 0.135,
+        "Considera apenas saídas registradas com valor de transferência e clube de destino fora do Brasil.\n"
+        "A janela de 2026 segue aberta e ficou fora desta seção.",
+        fontsize=9.5, color=MUTED, va="top", linespacing=1.6,
     )
 
     draw_footer(fig, page, total)
@@ -889,7 +898,7 @@ def page_sales_bars(pdf: PdfPages, block_a: dict, block_b: dict,
     fig = new_page()
     draw_header(
         fig, "Vendas por janela", f"{block_a['label']} vs {block_b['label']}",
-        "Quatro temporadas contra quatro temporadas — média e mediana de vendas ao exterior.",
+        f"Quadriênio contra triênio de janelas completas — média e mediana de vendas ao exterior.",
     )
 
     labels = ["Sub-20", "Sub-23"]
@@ -933,10 +942,10 @@ def page_sales_bars(pdf: PdfPages, block_a: dict, block_b: dict,
                         fontsize=9.5, color=INK, fontweight="bold")
 
         for i, (prev, curr) in enumerate(zip(panel["a"], panel["b"])):
-            delta = curr - prev
-            color = C_NEGATIVE if delta < 0 else C_POSITIVE
+            change = 100 * (curr - prev) / prev if prev else 0.0
+            color = C_NEGATIVE if change < 0 else C_POSITIVE
             ax.text(
-                i, 0.94, f"{delta:+.1f}".replace(".", ",") + " atletas",
+                i, 0.94, f"{change:+.1f}".replace(".", ",") + "%",
                 transform=ax.get_xaxis_transform(),
                 ha="center", va="center", fontsize=10.5, color=color, fontweight="bold",
                 bbox={"boxstyle": "round,pad=0.4", "facecolor": BAND, "edgecolor": "none"},
@@ -953,8 +962,9 @@ def page_sales_bars(pdf: PdfPages, block_a: dict, block_b: dict,
 
     fig.text(
         MARGIN_L, 0.125,
-        "Média e mediana de atletas vendidos ao exterior por janela dentro de cada bloco de quatro temporadas.\n"
-        "Os rótulos em destaque indicam a variação absoluta entre os blocos; 2026 ainda é uma janela parcial.",
+        f"Média e mediana de atletas vendidos ao exterior por janela: {block_a['seasons']} temporadas "
+        f"({block_a['label']}) contra {block_b['seasons']} ({block_b['label']}).\n"
+        "Os rótulos em destaque mostram quanto o triênio recente ficou acima do quadriênio anterior, em %.",
         fontsize=9.5, color=MUTED, va="top", linespacing=1.6,
     )
     draw_footer(fig, page, total)
@@ -964,9 +974,9 @@ def page_sales_bars(pdf: PdfPages, block_a: dict, block_b: dict,
 def page_sales_tables(pdf: PdfPages, sales: list[dict], page: int, total: int) -> None:
     fig = new_page()
     draw_header(fig, "Vendas por janela", "Tabelas por temporada",
-                "Vendas ao exterior por categoria, com o total de vendas da janela como referência.")
+                "Atletas vendidos para clubes de fora do Brasil, por categoria e por janela.")
 
-    column_width = 0.40
+    column_width = 0.325
     draw_season_table(
         fig, sales,
         title="Sub-20",
@@ -974,8 +984,6 @@ def page_sales_tables(pdf: PdfPages, sales: list[dict], page: int, total: int) -
         top=0.78,
         highlight_header="Vendas ao exterior",
         highlight_values=[fmt_int(r["sales_abroad_u20"]) for r in sales],
-        side_header="Vendas na janela",
-        side_values=[fmt_int(r["sales"]) for r in sales],
         x0=MARGIN_L,
         x1=MARGIN_L + column_width,
     )
@@ -986,16 +994,14 @@ def page_sales_tables(pdf: PdfPages, sales: list[dict], page: int, total: int) -
         top=0.78,
         highlight_header="Vendas ao exterior",
         highlight_values=[fmt_int(r["sales_abroad_u23"]) for r in sales],
-        side_header="Vendas na janela",
-        side_values=[fmt_int(r["sales"]) for r in sales],
         x0=MARGIN_R - column_width,
         x1=MARGIN_R,
     )
 
     fig.text(
         MARGIN_L, 0.135,
-        "“Vendas na janela” é o total de saídas com valor de transferência do conjunto dos clubes da Série A,\n"
-        "usado como referência de volume para cada temporada.",
+        "Apenas saídas com valor de transferência registrado e clube de destino fora do Brasil.\n"
+        "A janela de 2026 ainda está aberta e não entra na contagem.",
         fontsize=9.5, color=MUTED, va="top", linespacing=1.6,
     )
 
@@ -1016,9 +1022,10 @@ def generate_report() -> Path:
     period_a = aggregate_period(rows, PERIOD_A)
     period_b = aggregate_period(rows, PERIOD_B)
 
-    sales = collect_sales_stats()
-    sales_a = aggregate_sales_period(sales, PERIOD_A)
-    sales_b = aggregate_sales_period(sales, PERIOD_B)
+    sales_years = SALES_PERIOD_A + SALES_PERIOD_B
+    sales = [r for r in collect_sales_stats() if r["year"] in sales_years]
+    sales_a = aggregate_sales_period(sales, SALES_PERIOD_A)
+    sales_b = aggregate_sales_period(sales, SALES_PERIOD_B)
 
     total_pages = 8
     with PdfPages(REPORT_PATH) as pdf:
