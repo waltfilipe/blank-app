@@ -1,0 +1,124 @@
+{
+  "yearly": [
+    {
+      "year": 2019,
+      "total_minutes": 680835,
+      "u20_minutes": 38084,
+      "u23_minutes": 156457,
+      "u20_players": 83,
+      "u23_players": 216,
+      "u20_pct": 5.593719476818906,
+      "u23_pct": 22.980164063245866,
+      "partial": false
+    },
+    {
+      "year": 2020,
+      "total_minutes": 678417,
+      "u20_minutes": 69458,
+      "u23_minutes": 216049,
+      "u20_players": 140,
+      "u23_players": 302,
+      "u20_pct": 10.238245798675447,
+      "u23_pct": 31.84604748996561,
+      "partial": false
+    },
+    {
+      "year": 2021,
+      "total_minutes": 681801,
+      "u20_minutes": 58489,
+      "u23_minutes": 185182,
+      "u20_players": 128,
+      "u23_players": 273,
+      "u20_pct": 8.578602847458423,
+      "u23_pct": 27.160711116586803,
+      "partial": false
+    },
+    {
+      "year": 2022,
+      "total_minutes": 681644,
+      "u20_minutes": 35708,
+      "u23_minutes": 157543,
+      "u20_players": 108,
+      "u23_players": 258,
+      "u20_pct": 5.238511598429679,
+      "u23_pct": 23.112211066187044,
+      "partial": false
+    },
+    {
+      "year": 2023,
+      "total_minutes": 682074,
+      "u20_minutes": 41724,
+      "u23_minutes": 149148,
+      "u20_players": 112,
+      "u23_players": 255,
+      "u20_pct": 6.117224817248569,
+      "u23_pct": 21.86683556329665,
+      "partial": false
+    },
+    {
+      "year": 2024,
+      "total_minutes": 681631,
+      "u20_minutes": 31179,
+      "u23_minutes": 124985,
+      "u20_players": 100,
+      "u23_players": 215,
+      "u20_pct": 4.5741757637196665,
+      "u23_pct": 18.336167222441468,
+      "partial": false
+    },
+    {
+      "year": 2025,
+      "total_minutes": 679281,
+      "u20_minutes": 34147,
+      "u23_minutes": 96851,
+      "u20_players": 110,
+      "u23_players": 199,
+      "u20_pct": 5.026932889334458,
+      "u23_pct": 14.257869718128433,
+      "partial": false
+    },
+    {
+      "year": 2026,
+      "total_minutes": 496811,
+      "u20_minutes": 23814,
+      "u23_minutes": 76753,
+      "u20_players": 100,
+      "u23_players": 192,
+      "u20_pct": 4.79337212742874,
+      "u23_pct": 15.449134580353494,
+      "partial": true
+    }
+  ],
+  "period_a": {
+    "years": [
+      2019,
+      2020,
+      2021,
+      2022
+    ],
+    "label": "2019–2022",
+    "total_minutes": 2722697,
+    "u20_minutes": 201739,
+    "u23_minutes": 715231,
+    "u20_pct": 7.409528125972152,
+    "u23_pct": 26.26921027202072,
+    "avg_u20": 50434.75,
+    "avg_u23": 178807.75
+  },
+  "period_b": {
+    "years": [
+      2023,
+      2024,
+      2025,
+      2026
+    ],
+    "label": "2023–2026",
+    "total_minutes": 2539797,
+    "u20_minutes": 130864,
+    "u23_minutes": 447737,
+    "u20_pct": 5.152537781562857,
+    "u23_pct": 17.628849864772658,
+    "avg_u20": 32716.0,
+    "avg_u23": 111934.25
+  }
+}
