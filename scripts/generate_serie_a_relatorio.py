@@ -61,7 +61,6 @@ BAND = "#F4F6F8"
 NAVY = "#0F2A3D"
 
 REPORT_TITLE = "Análise de Minutos e Vendas - Atletas Sub-20 e Sub-23"
-REPORT_TITLE_LINES = "Análise de Minutos\ne Vendas - Atletas\nSub-20 e Sub-23"
 ON_NAVY_MUTED = "#A9BCCB"
 
 C_U20 = "#1F5F8B"
@@ -469,116 +468,39 @@ def kpi_card(fig: plt.Figure, x: float, y: float, w: float, h: float,
 
 # ---------------------------------------------------------------- páginas
 
-def draw_sparkline(fig: plt.Figure, rect: tuple[float, float, float, float],
-                   years: list[int], values: list[float], color: str,
-                   fmt, partial_year: int | None = None) -> None:
-    ax = fig.add_axes(rect)
-    ax.plot(years, values, color=color, linewidth=2.0, zorder=3)
-    ax.fill_between(years, values, min(values) - (max(values) - min(values)) * 0.35,
-                    color=color, alpha=0.08, linewidth=0)
-    for idx in (0, len(years) - 1):
-        hollow = years[idx] == partial_year
-        ax.plot(years[idx], values[idx], marker="o", markersize=5.5, zorder=4,
-                color=color, markerfacecolor=CANVAS if hollow else color,
-                markeredgewidth=1.6)
-        ax.annotate(
-            fmt(values[idx]), (years[idx], values[idx]),
-            xytext=(0, 9), textcoords="offset points", ha="center",
-            fontsize=8.5, color=color, fontweight="bold",
-        )
-        ax.text(years[idx], -0.12, str(years[idx]), transform=ax.get_xaxis_transform(),
-                ha="center", va="top", fontsize=7.5, color=MUTED)
-    span = max(values) - min(values)
-    ax.set_ylim(min(values) - span * 0.35, max(values) + span * 0.45)
-    ax.set_xlim(years[0] - 0.4, years[-1] + 0.4)
-    ax.axis("off")
-
-
-def page_intro(pdf: PdfPages, rows: list[dict], period_a: dict, period_b: dict,
-               sales: list[dict], sales_a: dict, sales_b: dict) -> None:
+def page_intro(pdf: PdfPages) -> None:
     fig = new_page()
-    panel_w = 0.385
-    fig.add_artist(Rectangle((0, 0), panel_w, 1, transform=fig.transFigure,
+    fig.add_artist(Rectangle((0, 0), 1, 1, transform=fig.transFigure,
                              facecolor=NAVY, edgecolor="none"))
+    fig.add_artist(Rectangle((0.986, 0.5), 0.014, 0.5, transform=fig.transFigure,
+                             facecolor=C_U20, edgecolor="none"))
+    fig.add_artist(Rectangle((0.986, 0), 0.014, 0.5, transform=fig.transFigure,
+                             facecolor=C_U23, edgecolor="none"))
 
-    left = MARGIN_L
-    fig.text(left, 0.905, " ".join("RELATÓRIO ANALÍTICO"), fontsize=8,
+    fig.text(MARGIN_L, 0.885, " ".join("RELATÓRIO ANALÍTICO"), fontsize=8,
              color=ON_NAVY_MUTED, fontweight="bold")
-    fig.add_artist(Rectangle((left, 0.868), 0.06, 0.005, transform=fig.transFigure,
-                             facecolor=C_U23, edgecolor="none"))
-    fig.text(left, 0.835, REPORT_TITLE_LINES, fontsize=27, color=CANVAS,
-             fontweight="bold", va="top", linespacing=1.15)
-    fig.text(left, 0.585, "Série A do Campeonato Brasileiro · 2019 a 2026",
-             fontsize=11.5, color=ON_NAVY_MUTED, va="top")
+    fig.add_artist(Line2D([MARGIN_L, MARGIN_R], [0.855, 0.855], color=ON_NAVY_MUTED,
+                          alpha=0.35, linewidth=0.8, transform=fig.transFigure))
 
-    fig.text(left, 0.43, " ".join("INSIGHT"), fontsize=8, color=C_U23, fontweight="bold")
-    fig.add_artist(Rectangle((left, 0.175), 0.004, 0.225, transform=fig.transFigure,
+    fig.add_artist(Rectangle((MARGIN_L, 0.655), 0.06, 0.006, transform=fig.transFigure,
                              facecolor=C_U23, edgecolor="none"))
+    title_main, title_sub = (part.strip() for part in REPORT_TITLE.split(" - "))
+    fig.text(MARGIN_L, 0.625, title_main, fontsize=38, color=CANVAS,
+             fontweight="bold", va="top")
+    fig.text(MARGIN_L, 0.528, title_sub, fontsize=38, color=ON_NAVY_MUTED, va="top")
+    fig.text(MARGIN_L, 0.405, "Série A do Campeonato Brasileiro · temporadas 2019 a 2026",
+             fontsize=13, color=ON_NAVY_MUTED, va="top")
+
+    fig.add_artist(Line2D([MARGIN_L, MARGIN_R], [0.255, 0.255], color=ON_NAVY_MUTED,
+                          alpha=0.35, linewidth=0.8, transform=fig.transFigure))
+    fig.text(MARGIN_L, 0.205, " ".join("INSIGHT"), fontsize=8, color=C_U23,
+             fontweight="bold", va="top")
     fig.text(
-        left + 0.022, 0.40,
-        "Os números mostram uma queda\nna utilização desses atletas,\nmas será pelo aumento de\n"
-        "estrangeiros ou por vendas\ncada vez mais precoces?",
-        fontsize=14, color=CANVAS, va="top", linespacing=1.5, fontweight="bold",
+        MARGIN_L + 0.16, 0.212,
+        "Os números mostram uma queda na utilização desses atletas, mas será\n"
+        "pelo aumento de estrangeiros ou por vendas cada vez mais precoces?",
+        fontsize=15, color=CANVAS, va="top", linespacing=1.55,
     )
-
-    right = panel_w + 0.055
-    fig.text(right, 0.905, " ".join("PRINCIPAIS ACHADOS"), fontsize=8,
-             color=MUTED, fontweight="bold")
-    fig.text(right, 0.875, "O que mudou entre os blocos de temporadas", fontsize=17,
-             color=INK, fontweight="bold", va="top")
-
-    years = [r["year"] for r in rows]
-    partial_year = next((r["year"] for r in rows if r["partial"]), None)
-    sales_years = [r["year"] for r in sales]
-
-    def pct_change(a: float, b: float) -> str:
-        return f"{100 * (b - a) / a:+.1f}%".replace(".", ",")
-
-    findings = [
-        (
-            "Minutos · sub-20", C_U20,
-            fmt_delta_pp(period_a["avg_u20_pct"], period_b["avg_u20_pct"]),
-            f"Média anual: {fmt_pct(period_a['avg_u20_pct'])} em {period_a['label']} → "
-            f"{fmt_pct(period_b['avg_u20_pct'])} em {period_b['label']}",
-            years, [r["u20_pct"] for r in rows], lambda v: fmt_pct(v), partial_year,
-        ),
-        (
-            "Minutos · sub-23", C_U23,
-            fmt_delta_pp(period_a["avg_u23_pct"], period_b["avg_u23_pct"]),
-            f"Média anual: {fmt_pct(period_a['avg_u23_pct'])} em {period_a['label']} → "
-            f"{fmt_pct(period_b['avg_u23_pct'])} em {period_b['label']}",
-            years, [r["u23_pct"] for r in rows], lambda v: fmt_pct(v), partial_year,
-        ),
-        (
-            "Vendas ao exterior · sub-20", C_U20,
-            pct_change(sales_a["avg_u20"], sales_b["avg_u20"]),
-            f"Média por janela: {fmt_num(sales_a['avg_u20'])} em {sales_a['label']} → "
-            f"{fmt_num(sales_b['avg_u20'])} em {sales_b['label']}",
-            sales_years, [r["sales_abroad_u20"] for r in sales], fmt_int, None,
-        ),
-        (
-            "Vendas ao exterior · sub-23", C_U23,
-            pct_change(sales_a["avg_u23"], sales_b["avg_u23"]),
-            f"Média por janela: {fmt_num(sales_a['avg_u23'])} em {sales_a['label']} → "
-            f"{fmt_num(sales_b['avg_u23'])} em {sales_b['label']}",
-            sales_years, [r["sales_abroad_u23"] for r in sales], fmt_int, None,
-        ),
-    ]
-
-    row_top = 0.775
-    row_h = 0.172
-    for idx, (label, color, value, desc, xs, ys, fmt, partial) in enumerate(findings):
-        top = row_top - idx * row_h
-        fig.text(right, top, label.upper(), fontsize=7.5, color=color,
-                 fontweight="bold", va="top")
-        fig.text(right, top - 0.028, value, fontsize=25, color=INK,
-                 fontweight="bold", va="top")
-        fig.text(right, top - 0.098, desc, fontsize=9, color=MUTED, va="top")
-        draw_sparkline(fig, (MARGIN_R - 0.17, top - 0.112, 0.17, 0.08),
-                       xs, ys, color, fmt, partial)
-        if idx < len(findings) - 1:
-            fig.add_artist(Line2D([right, MARGIN_R], [top - row_h + 0.022] * 2,
-                                  color=RULE, linewidth=0.8, transform=fig.transFigure))
 
     save_page(pdf, fig)
 
@@ -1067,7 +989,7 @@ def generate_report() -> Path:
                 "Creator": "scripts/generate_serie_a_relatorio.py",
             }
         )
-        page_intro(pdf, rows, period_a, period_b, sales, sales_a, sales_b)
+        page_intro(pdf)
         page_lines(pdf, rows)
         page_period_bars(pdf, period_a, period_b)
         page_table_category(
