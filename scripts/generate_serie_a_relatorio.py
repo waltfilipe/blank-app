@@ -6,7 +6,6 @@ from __future__ import annotations
 import json
 import re
 import statistics
-import textwrap
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
@@ -58,6 +57,8 @@ MUTED = "#6B7682"
 RULE = "#DFE4E9"
 CANVAS = "#FFFFFF"
 BAND = "#F4F6F8"
+NAVY = "#0F2A3D"
+ON_NAVY_MUTED = "#A9BCCB"
 
 C_U20 = "#1F5F8B"
 C_U23 = "#C1663F"
@@ -425,24 +426,6 @@ def draw_header(fig: plt.Figure, eyebrow: str, title: str, subtitle: str = "") -
     )
 
 
-def draw_footer(fig: plt.Figure, page: int, total: int) -> None:
-    fig.add_artist(
-        Line2D(
-            [MARGIN_L, MARGIN_R], [0.062, 0.062],
-            color=RULE, linewidth=0.8, transform=fig.transFigure,
-        )
-    )
-    fig.text(
-        MARGIN_L, 0.038,
-        "Série A · Atletas sub-20 e sub-23 · Fontes: FotMob e Transfermarkt",
-        fontsize=8, color=MUTED,
-    )
-    fig.text(
-        MARGIN_R, 0.038, f"{page:02d} / {total:02d}",
-        fontsize=8, color=MUTED, ha="right",
-    )
-
-
 def save_page(pdf: PdfPages, fig: plt.Figure) -> None:
     pdf.savefig(fig)
     plt.close(fig)
@@ -482,107 +465,127 @@ def kpi_card(fig: plt.Figure, x: float, y: float, w: float, h: float,
 
 # ---------------------------------------------------------------- páginas
 
-def page_cover(pdf: PdfPages, period_a: dict, period_b: dict,
-               sales_a: dict, sales_b: dict) -> None:
-    fig = new_page()
-    fig.add_artist(
-        Rectangle((0, 0.70), 1, 0.30, transform=fig.transFigure,
-                  facecolor=BAND, edgecolor="none")
-    )
-    fig.add_artist(
-        Rectangle((0, 0.70), 1, 0.006, transform=fig.transFigure,
-                  facecolor=C_U20, edgecolor="none")
-    )
-    fig.add_artist(
-        Rectangle((MARGIN_L, 0.885), 0.075, 0.004, transform=fig.transFigure,
-                  facecolor=C_U23, edgecolor="none")
-    )
-
-    fig.text(MARGIN_L, 0.925, " ".join("RELATÓRIO ANALÍTICO"), fontsize=8,
-             color=MUTED, fontweight="bold")
-    fig.text(MARGIN_L, 0.855, "Atletas jovens na Série A", fontsize=34,
-             color=INK, fontweight="bold", va="top")
-    fig.text(MARGIN_L, 0.785, "Minutos em campo e vendas ao exterior · temporadas 2019 a 2026",
-             fontsize=13, color=MUTED, va="top")
-
-    fig.text(MARGIN_L, 0.625,
-             "Duas leituras complementares sobre sub-20 e sub-23: quanto esses atletas jogam\n"
-             "no Brasileirão e quantos são negociados com clubes de fora do país, ano a ano\n"
-             "e em blocos comparáveis de temporadas.",
-             fontsize=12, color=INK, va="top", linespacing=1.7)
-
-    cards = [
-        ("Minutos sub-20 · média anual", fmt_pct(period_b["avg_u20_pct"]),
-         f"{period_a['label']} → {period_b['label']}: "
-         f"{fmt_delta_pp(period_a['avg_u20_pct'], period_b['avg_u20_pct'])}",
-         C_U20),
-        ("Minutos sub-23 · média anual", fmt_pct(period_b["avg_u23_pct"]),
-         f"{period_a['label']} → {period_b['label']}: "
-         f"{fmt_delta_pp(period_a['avg_u23_pct'], period_b['avg_u23_pct'])}",
-         C_U23),
-        ("Vendas sub-23 ao exterior", fmt_num(sales_b["avg_u23"]),
-         f"média por janela em {sales_b['label']} · antes: {fmt_num(sales_a['avg_u23'])}",
-         C_U23),
-    ]
-    width = 0.268
-    gap = 0.021
-    for idx, (label, value, note, accent) in enumerate(cards):
-        kpi_card(fig, MARGIN_L + idx * (width + gap), 0.225, width, 0.18,
-                 label, value, note, accent)
-
-    fig.text(MARGIN_L, 0.148,
-             "Sub-20: nascidos em Y−20 ou depois  ·  Sub-23: nascidos em Y−23 ou depois  ·  goleiros fora da base de minutos",
-             fontsize=9.5, color=MUTED, va="top")
-    fig.text(MARGIN_L, 0.108,
-             "Fontes: FotMob (minutos) e Transfermarkt (transferências)  ·  "
-             f"Gerado em {date.today().strftime('%d/%m/%Y')}",
-             fontsize=9.5, color=MUTED, va="top")
-    save_page(pdf, fig)
-
-
-def page_methodology(pdf: PdfPages, rows: list[dict], page: int, total: int) -> None:
-    fig = new_page()
-    draw_header(fig, "Metodologia", "Como os números foram apurados",
-                "Critérios de recorte, fonte dos dados e limitações da amostra.")
-
-    blocks = [
-        ("Minutos · fonte", "Ranking mins_played do FotMob para a Série A (liga 268), "
-                            "uma consulta por temporada, de 2019 a 2026. Goleiros excluídos: "
-                            "os percentuais usam apenas minutos de jogadores de linha."),
-        ("Sub-20 e sub-23", "No ano Y, atletas nascidos em Y−20 ou depois (sub-20) e em Y−23 "
-                            "ou depois (sub-23). Em 2019: nascidos desde 1999 e desde 1996."),
-        ("Vendas · fonte", "Transfermarkt, página de transferências da Série A por temporada. "
-                           "Conta saídas com valor de transferência registrado e clube de "
-                           "destino fora do Brasil; empréstimos e saídas a custo zero ficam de fora."),
-        ("Idade nas vendas", "Usa a idade registrada pelo Transfermarkt no momento da "
-                             "transferência, critério do próprio site."),
-        ("Comparativos", "Entre blocos, minutos aparecem só como média e mediana dos percentuais "
-                         "anuais — nunca como soma de minutos. Vendas usam média e mediana por janela, "
-                         "com a variação expressa em % sobre o bloco anterior."),
-        ("Limitação", "A temporada 2026 segue em andamento. Nos minutos ela aparece marcada como "
-                      "parcial; nas vendas fica de fora, e o bloco recente cobre as três janelas "
-                      "fechadas de 2023 a 2025."),
-    ]
-
-    y = 0.80
-    line_h = 0.029
-    for title, body in blocks:
-        wrapped = textwrap.fill(body, width=86)
-        fig.text(MARGIN_L, y, title, fontsize=11, color=INK, fontweight="bold", va="top")
-        fig.text(MARGIN_L + 0.20, y, wrapped, fontsize=10.5,
-                 color=MUTED, va="top", linespacing=1.55)
-        rule_y = y - wrapped.count("\n") * line_h - 0.038
-        fig.add_artist(
-            Line2D([MARGIN_L, MARGIN_R], [rule_y, rule_y],
-                   color=RULE, linewidth=0.7, transform=fig.transFigure)
+def draw_sparkline(fig: plt.Figure, rect: tuple[float, float, float, float],
+                   years: list[int], values: list[float], color: str,
+                   fmt, partial_year: int | None = None) -> None:
+    ax = fig.add_axes(rect)
+    ax.plot(years, values, color=color, linewidth=2.0, zorder=3)
+    ax.fill_between(years, values, min(values) - (max(values) - min(values)) * 0.35,
+                    color=color, alpha=0.08, linewidth=0)
+    for idx in (0, len(years) - 1):
+        hollow = years[idx] == partial_year
+        ax.plot(years[idx], values[idx], marker="o", markersize=5.5, zorder=4,
+                color=color, markerfacecolor=CANVAS if hollow else color,
+                markeredgewidth=1.6)
+        ax.annotate(
+            fmt(values[idx]), (years[idx], values[idx]),
+            xytext=(0, 9), textcoords="offset points", ha="center",
+            fontsize=8.5, color=color, fontweight="bold",
         )
-        y = rule_y - 0.030
+        ax.text(years[idx], -0.12, str(years[idx]), transform=ax.get_xaxis_transform(),
+                ha="center", va="top", fontsize=7.5, color=MUTED)
+    span = max(values) - min(values)
+    ax.set_ylim(min(values) - span * 0.35, max(values) + span * 0.45)
+    ax.set_xlim(years[0] - 0.4, years[-1] + 0.4)
+    ax.axis("off")
 
-    draw_footer(fig, page, total)
+
+def page_intro(pdf: PdfPages, rows: list[dict], period_a: dict, period_b: dict,
+               sales: list[dict], sales_a: dict, sales_b: dict) -> None:
+    fig = new_page()
+    panel_w = 0.385
+    fig.add_artist(Rectangle((0, 0), panel_w, 1, transform=fig.transFigure,
+                             facecolor=NAVY, edgecolor="none"))
+
+    left = MARGIN_L
+    fig.text(left, 0.905, " ".join("RELATÓRIO ANALÍTICO"), fontsize=8,
+             color=ON_NAVY_MUTED, fontweight="bold")
+    fig.add_artist(Rectangle((left, 0.868), 0.06, 0.005, transform=fig.transFigure,
+                             facecolor=C_U23, edgecolor="none"))
+    fig.text(left, 0.835, "Atletas jovens\nna Série A", fontsize=33, color=CANVAS,
+             fontweight="bold", va="top", linespacing=1.1)
+    fig.text(left, 0.655, "Minutos em campo e vendas ao exterior\nde sub-20 e sub-23 · 2019 a 2026",
+             fontsize=12, color=ON_NAVY_MUTED, va="top", linespacing=1.5)
+
+    fig.add_artist(Rectangle((left, 0.365), 0.004, 0.155, transform=fig.transFigure,
+                             facecolor=C_U23, edgecolor="none"))
+    fig.text(left + 0.022, 0.52, "Os jovens jogam menos\nno Brasileirão e são\nvendidos mais para fora.",
+             fontsize=17, color=CANVAS, va="top", linespacing=1.4, fontweight="bold")
+
+    scope = [
+        ("Sub-20", "nascidos em Y−20 ou depois"),
+        ("Sub-23", "nascidos em Y−23 ou depois"),
+        ("Minutos", "FotMob · sem goleiros · 2026 parcial"),
+        ("Vendas", "Transfermarkt · destino fora do Brasil"),
+    ]
+    for idx, (key, value) in enumerate(scope):
+        y = 0.245 - idx * 0.042
+        fig.text(left, y, key, fontsize=9, color=CANVAS, fontweight="bold", va="top")
+        fig.text(left + 0.075, y, value, fontsize=9, color=ON_NAVY_MUTED, va="top")
+
+    right = panel_w + 0.055
+    fig.text(right, 0.905, " ".join("PRINCIPAIS ACHADOS"), fontsize=8,
+             color=MUTED, fontweight="bold")
+    fig.text(right, 0.875, "O que mudou entre os blocos de temporadas", fontsize=17,
+             color=INK, fontweight="bold", va="top")
+
+    years = [r["year"] for r in rows]
+    partial_year = next((r["year"] for r in rows if r["partial"]), None)
+    sales_years = [r["year"] for r in sales]
+
+    def pct_change(a: float, b: float) -> str:
+        return f"{100 * (b - a) / a:+.1f}%".replace(".", ",")
+
+    findings = [
+        (
+            "Minutos · sub-20", C_U20,
+            fmt_delta_pp(period_a["avg_u20_pct"], period_b["avg_u20_pct"]),
+            f"Média anual: {fmt_pct(period_a['avg_u20_pct'])} em {period_a['label']} → "
+            f"{fmt_pct(period_b['avg_u20_pct'])} em {period_b['label']}",
+            years, [r["u20_pct"] for r in rows], lambda v: fmt_pct(v), partial_year,
+        ),
+        (
+            "Minutos · sub-23", C_U23,
+            fmt_delta_pp(period_a["avg_u23_pct"], period_b["avg_u23_pct"]),
+            f"Média anual: {fmt_pct(period_a['avg_u23_pct'])} em {period_a['label']} → "
+            f"{fmt_pct(period_b['avg_u23_pct'])} em {period_b['label']}",
+            years, [r["u23_pct"] for r in rows], lambda v: fmt_pct(v), partial_year,
+        ),
+        (
+            "Vendas ao exterior · sub-20", C_U20,
+            pct_change(sales_a["avg_u20"], sales_b["avg_u20"]),
+            f"Média por janela: {fmt_num(sales_a['avg_u20'])} em {sales_a['label']} → "
+            f"{fmt_num(sales_b['avg_u20'])} em {sales_b['label']}",
+            sales_years, [r["sales_abroad_u20"] for r in sales], fmt_int, None,
+        ),
+        (
+            "Vendas ao exterior · sub-23", C_U23,
+            pct_change(sales_a["avg_u23"], sales_b["avg_u23"]),
+            f"Média por janela: {fmt_num(sales_a['avg_u23'])} em {sales_a['label']} → "
+            f"{fmt_num(sales_b['avg_u23'])} em {sales_b['label']}",
+            sales_years, [r["sales_abroad_u23"] for r in sales], fmt_int, None,
+        ),
+    ]
+
+    row_top = 0.775
+    row_h = 0.172
+    for idx, (label, color, value, desc, xs, ys, fmt, partial) in enumerate(findings):
+        top = row_top - idx * row_h
+        fig.text(right, top, label.upper(), fontsize=7.5, color=color,
+                 fontweight="bold", va="top")
+        fig.text(right, top - 0.028, value, fontsize=25, color=INK,
+                 fontweight="bold", va="top")
+        fig.text(right, top - 0.098, desc, fontsize=9, color=MUTED, va="top")
+        draw_sparkline(fig, (MARGIN_R - 0.17, top - 0.112, 0.17, 0.08),
+                       xs, ys, color, fmt, partial)
+        if idx < len(findings) - 1:
+            fig.add_artist(Line2D([right, MARGIN_R], [top - row_h + 0.022] * 2,
+                                  color=RULE, linewidth=0.8, transform=fig.transFigure))
+
     save_page(pdf, fig)
 
 
-def page_lines(pdf: PdfPages, rows: list[dict], page: int, total: int) -> None:
+def page_lines(pdf: PdfPages, rows: list[dict]) -> None:
     fig = new_page()
     draw_header(fig, "Evolução anual", "Participação em minutos",
                 "Percentual dos minutos de linha jogados por atletas sub-20 e sub-23, ano a ano.")
@@ -628,12 +631,10 @@ def page_lines(pdf: PdfPages, rows: list[dict], page: int, total: int) -> None:
         fontsize=10.5, handlelength=1.8, columnspacing=1.8,
     )
 
-    draw_footer(fig, page, total)
     save_page(pdf, fig)
 
 
-def page_period_bars(pdf: PdfPages, period_a: dict, period_b: dict,
-                     page: int, total: int) -> None:
+def page_period_bars(pdf: PdfPages, period_a: dict, period_b: dict) -> None:
     fig = new_page()
     draw_header(
         fig, "Comparativo de blocos", f"{period_a['label']} vs {period_b['label']}",
@@ -704,7 +705,6 @@ def page_period_bars(pdf: PdfPages, period_a: dict, period_b: dict,
         "Os rótulos em destaque indicam a variação em pontos percentuais (p.p.) entre os dois blocos.",
         fontsize=9.5, color=MUTED, va="top", linespacing=1.6,
     )
-    draw_footer(fig, page, total)
     save_page(pdf, fig)
 
 
@@ -799,8 +799,6 @@ def page_table_category(
     accent: str,
     avg_key: str,
     med_key: str,
-    page: int,
-    total: int,
 ) -> None:
     fig = new_page()
     draw_header(
@@ -837,11 +835,10 @@ def page_table_category(
         fontsize=10.5, color=MUTED, va="top",
     )
 
-    draw_footer(fig, page, total)
     save_page(pdf, fig)
 
 
-def page_sales_lines(pdf: PdfPages, sales: list[dict], page: int, total: int) -> None:
+def page_sales_lines(pdf: PdfPages, sales: list[dict]) -> None:
     fig = new_page()
     draw_header(fig, "Vendas por janela", "Vendas ao exterior",
                 "Atletas sub-20 e sub-23 vendidos por clubes da Série A para clubes de fora do Brasil.")
@@ -889,16 +886,14 @@ def page_sales_lines(pdf: PdfPages, sales: list[dict], page: int, total: int) ->
         fontsize=9.5, color=MUTED, va="top", linespacing=1.6,
     )
 
-    draw_footer(fig, page, total)
     save_page(pdf, fig)
 
 
-def page_sales_bars(pdf: PdfPages, block_a: dict, block_b: dict,
-                    page: int, total: int) -> None:
+def page_sales_bars(pdf: PdfPages, block_a: dict, block_b: dict) -> None:
     fig = new_page()
     draw_header(
         fig, "Vendas por janela", f"{block_a['label']} vs {block_b['label']}",
-        f"Quadriênio contra triênio de janelas completas — média e mediana de vendas ao exterior.",
+        "Quadriênio contra triênio de janelas completas — média e mediana de vendas ao exterior.",
     )
 
     labels = ["Sub-20", "Sub-23"]
@@ -967,11 +962,10 @@ def page_sales_bars(pdf: PdfPages, block_a: dict, block_b: dict,
         "Os rótulos em destaque mostram quanto o triênio recente ficou acima do quadriênio anterior, em %.",
         fontsize=9.5, color=MUTED, va="top", linespacing=1.6,
     )
-    draw_footer(fig, page, total)
     save_page(pdf, fig)
 
 
-def page_sales_tables(pdf: PdfPages, sales: list[dict], page: int, total: int) -> None:
+def page_sales_tables(pdf: PdfPages, sales: list[dict]) -> None:
     fig = new_page()
     draw_header(fig, "Vendas por janela", "Tabelas por temporada",
                 "Atletas vendidos para clubes de fora do Brasil, por categoria e por janela.")
@@ -1005,7 +999,6 @@ def page_sales_tables(pdf: PdfPages, sales: list[dict], page: int, total: int) -
         fontsize=9.5, color=MUTED, va="top", linespacing=1.6,
     )
 
-    draw_footer(fig, page, total)
     save_page(pdf, fig)
 
 
@@ -1027,7 +1020,6 @@ def generate_report() -> Path:
     sales_a = aggregate_sales_period(sales, SALES_PERIOD_A)
     sales_b = aggregate_sales_period(sales, SALES_PERIOD_B)
 
-    total_pages = 8
     with PdfPages(REPORT_PATH) as pdf:
         pdf.infodict().update(
             {
@@ -1036,25 +1028,22 @@ def generate_report() -> Path:
                 "Creator": "scripts/generate_serie_a_relatorio.py",
             }
         )
-        page_cover(pdf, period_a, period_b, sales_a, sales_b)
-        page_lines(pdf, rows, 1, total_pages)
-        page_period_bars(pdf, period_a, period_b, 2, total_pages)
+        page_intro(pdf, rows, period_a, period_b, sales, sales_a, sales_b)
+        page_lines(pdf, rows)
+        page_period_bars(pdf, period_a, period_b)
         page_table_category(
             pdf, rows, period_a, period_b,
             category="Sub-20", pct_key="u20_pct", players_key="u20_players",
             accent=C_U20, avg_key="avg_u20_pct", med_key="med_u20_pct",
-            page=3, total=total_pages,
         )
         page_table_category(
             pdf, rows, period_a, period_b,
             category="Sub-23", pct_key="u23_pct", players_key="u23_players",
             accent=C_U23, avg_key="avg_u23_pct", med_key="med_u23_pct",
-            page=4, total=total_pages,
         )
-        page_sales_lines(pdf, sales, 5, total_pages)
-        page_sales_bars(pdf, sales_a, sales_b, 6, total_pages)
-        page_sales_tables(pdf, sales, 7, total_pages)
-        page_methodology(pdf, rows, 8, total_pages)
+        page_sales_lines(pdf, sales)
+        page_sales_bars(pdf, sales_a, sales_b)
+        page_sales_tables(pdf, sales)
 
     meta_path = REPORT_PATH.with_suffix(".json")
     meta_path.write_text(
