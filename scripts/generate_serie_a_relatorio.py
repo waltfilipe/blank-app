@@ -193,6 +193,7 @@ def collect_season_stats(dob_by_id: dict[int, date]) -> list[dict]:
         u23_minutes = 0
         u20_players = 0
         u23_players = 0
+        total_players = len(players)
 
         for player in players:
             minutes = int(player["statValue"]["value"])
@@ -218,6 +219,9 @@ def collect_season_stats(dob_by_id: dict[int, date]) -> list[dict]:
                 "u23_players": u23_players,
                 "u20_pct": 100 * u20_minutes / total_minutes,
                 "u23_pct": 100 * u23_minutes / total_minutes,
+                "u20_players_pct": 100 * u20_players / total_players,
+                "u23_players_pct": 100 * u23_players / total_players,
+                "total_players": total_players,
                 "partial": year == 2026,
             }
         )
@@ -226,20 +230,14 @@ def collect_season_stats(dob_by_id: dict[int, date]) -> list[dict]:
 
 def aggregate_period(rows: list[dict], years: list[int]) -> dict:
     subset = [r for r in rows if r["year"] in years]
-    total = sum(r["total_minutes"] for r in subset)
-    u20 = sum(r["u20_minutes"] for r in subset)
-    u23 = sum(r["u23_minutes"] for r in subset)
-    n = len(years)
+    n = len(subset)
     return {
         "years": years,
         "label": f"{years[0]}–{years[-1]}",
-        "total_minutes": total,
-        "u20_minutes": u20,
-        "u23_minutes": u23,
-        "u20_pct": 100 * u20 / total,
-        "u23_pct": 100 * u23 / total,
-        "avg_u20": u20 / n,
-        "avg_u23": u23 / n,
+        "avg_u20_pct": sum(r["u20_pct"] for r in subset) / n,
+        "avg_u23_pct": sum(r["u23_pct"] for r in subset) / n,
+        "avg_u20_players_pct": sum(r["u20_players_pct"] for r in subset) / n,
+        "avg_u23_players_pct": sum(r["u23_players_pct"] for r in subset) / n,
     }
 
 
@@ -278,9 +276,8 @@ def fmt_pct(value: float, decimals: int = 1) -> str:
     return f"{value:.{decimals}f}%".replace(".", ",")
 
 
-def fmt_delta(previous: float, current: float) -> str:
-    change = 100 * (current - previous) / previous
-    return f"{change:+.1f}%".replace(".", ",")
+def fmt_delta_pp(previous: float, current: float) -> str:
+    return f"{current - previous:+.1f} p.p.".replace(".", ",")
 
 
 # ---------------------------------------------------------------- página
@@ -385,18 +382,20 @@ def page_cover(pdf: PdfPages, rows: list[dict], period_a: dict, period_b: dict) 
 
     fig.text(MARGIN_L, 0.645,
              "Comparativo da utilização de atletas jovens, ano a ano e em dois blocos\n"
-             "de quatro temporadas, considerando apenas jogadores de linha.",
+             "de quatro temporadas. Indicadores relativos (%), sem soma de minutos totais.",
              fontsize=12, color=INK, va="top", linespacing=1.6)
 
     cards = [
-        ("Sub-20 · média por temporada", fmt_int(period_b["avg_u20"]),
-         f"{period_a['label']} → {period_b['label']}: {fmt_delta(period_a['avg_u20'], period_b['avg_u20'])}",
+        ("Sub-20 · participação média", fmt_pct(period_b["avg_u20_pct"]),
+         f"{period_a['label']} → {period_b['label']}: "
+         f"{fmt_delta_pp(period_a['avg_u20_pct'], period_b['avg_u20_pct'])}",
          C_U20),
-        ("Sub-23 · média por temporada", fmt_int(period_b["avg_u23"]),
-         f"{period_a['label']} → {period_b['label']}: {fmt_delta(period_a['avg_u23'], period_b['avg_u23'])}",
+        ("Sub-23 · participação média", fmt_pct(period_b["avg_u23_pct"]),
+         f"{period_a['label']} → {period_b['label']}: "
+         f"{fmt_delta_pp(period_a['avg_u23_pct'], period_b['avg_u23_pct'])}",
          C_U23),
-        ("Participação sub-23", fmt_pct(period_b["u23_pct"]),
-         f"antes: {fmt_pct(period_a['u23_pct'])} dos minutos", C_U23),
+        ("Sub-23 · share de atletas", fmt_pct(period_b["avg_u23_players_pct"]),
+         f"antes: {fmt_pct(period_a['avg_u23_players_pct'])} com minutos", C_U23),
     ]
     width = 0.268
     gap = 0.021
@@ -429,8 +428,11 @@ def page_methodology(pdf: PdfPages, rows: list[dict], page: int, total: int) -> 
                    "todos os nascidos a partir de 1996."),
         ("Datas de nascimento", "Obtidas nos elencos e nos perfis individuais do FotMob; "
                                 "cobertura de 100% dos atletas com minutos registrados."),
-        ("Limitação", "A temporada 2026 ainda está em andamento. Volumes absolutos desse ano "
-                      "são parciais; as comparações percentuais seguem válidas."),
+        ("Comparativos", "Entre blocos de temporadas, usamos apenas médias anuais de indicadores "
+                         "relativos (% de minutos e % de atletas). Nunca somamos minutos totais, "
+                         "pois 2026 está incompleta."),
+        ("Limitação", "A temporada 2026 ainda está em andamento. Por isso, comparações entre "
+                      "períodos usam somente percentuais médios por ano."),
     ]
 
     y = 0.79
@@ -450,8 +452,8 @@ def page_methodology(pdf: PdfPages, rows: list[dict], page: int, total: int) -> 
 
 def page_lines(pdf: PdfPages, rows: list[dict], page: int, total: int) -> None:
     fig = new_page()
-    draw_header(fig, "Evolução anual", "Minutos por temporada",
-                "Volume absoluto e participação relativa dos atletas jovens, ano a ano.")
+    draw_header(fig, "Evolução anual", "Indicadores relativos por temporada",
+                "Participação em minutos e presença no elenco com minutos, ano a ano.")
 
     years = [r["year"] for r in rows]
     partial_year = next((r["year"] for r in rows if r["partial"]), None)
@@ -461,24 +463,23 @@ def page_lines(pdf: PdfPages, rows: list[dict], page: int, total: int) -> None:
     ax1 = fig.add_axes((plot_left, 0.425, plot_width, 0.315))
     ax2 = fig.add_axes((plot_left, 0.125, plot_width, 0.185))
 
-    for key, color, label in (("u20_minutes", C_U20, "Sub-20"),
-                              ("u23_minutes", C_U23, "Sub-23")):
+    for key, color, label in (("u20_players_pct", C_U20, "Sub-20"),
+                              ("u23_players_pct", C_U23, "Sub-23")):
         values = [r[key] for r in rows]
         ax1.plot(years, values, color=color, linewidth=2.4, label=label,
                  marker="o", markersize=5.5, markerfacecolor=CANVAS,
                  markeredgewidth=1.8, zorder=3)
-        ax1.annotate(fmt_int(values[-1]), (years[-1], values[-1]),
+        ax1.annotate(fmt_pct(values[-1]), (years[-1], values[-1]),
                      xytext=(9, 0), textcoords="offset points", fontsize=9,
                      color=color, fontweight="bold", va="center")
 
     style_axes(ax1)
-    ax1.set_title("Minutos jogados por temporada", pad=12, loc="left", fontweight="bold")
-    ax1.set_ylabel("Minutos")
+    ax1.set_title("Atletas jovens com minutos (% do elenco de linha)", pad=12,
+                  loc="left", fontweight="bold")
+    ax1.set_ylabel("% dos atletas")
     ax1.set_xlim(years[0] - 0.35, years[-1] + 0.55)
     ax1.set_xticks(years)
-    ticks = [0, 50000, 100000, 150000, 200000, 250000]
-    ax1.set_yticks(ticks)
-    ax1.set_yticklabels([fmt_int(v) for v in ticks])
+    ax1.yaxis.set_major_formatter(lambda v, _: fmt_pct(v, 0))
 
     ax2.plot(years, [r["u20_pct"] for r in rows], color=C_U20, linewidth=2.4,
              marker="o", markersize=5.5, markerfacecolor=CANVAS, markeredgewidth=1.8, zorder=3)
@@ -518,7 +519,7 @@ def page_period_bars(pdf: PdfPages, period_a: dict, period_b: dict,
     fig = new_page()
     draw_header(
         fig, "Comparativo de blocos", f"{period_a['label']} vs {period_b['label']}",
-        "Quatro temporadas contra quatro temporadas, em média anual e em participação relativa.",
+        "Quatro temporadas contra quatro temporadas, apenas com médias anuais de percentuais.",
     )
 
     labels = ["Sub-20", "Sub-23"]
@@ -529,23 +530,21 @@ def page_period_bars(pdf: PdfPages, period_a: dict, period_b: dict,
     panels = [
         {
             "rect": (MARGIN_L + 0.038, 0.195, panel_width, 0.50),
-            "title": "Média de minutos por temporada",
-            "a": [period_a["avg_u20"], period_a["avg_u23"]],
-            "b": [period_b["avg_u20"], period_b["avg_u23"]],
-            "fmt": fmt_int,
-            "ylabel": "Minutos por temporada",
+            "title": "Média anual · % dos minutos (linha)",
+            "a": [period_a["avg_u20_pct"], period_a["avg_u23_pct"]],
+            "b": [period_b["avg_u20_pct"], period_b["avg_u23_pct"]],
+            "ylabel": "% dos minutos",
         },
         {
             "rect": (MARGIN_R - panel_width, 0.195, panel_width, 0.50),
-            "title": "Participação no total de minutos",
-            "a": [period_a["u20_pct"], period_a["u23_pct"]],
-            "b": [period_b["u20_pct"], period_b["u23_pct"]],
-            "fmt": lambda v: fmt_pct(v),
-            "ylabel": "% dos minutos",
+            "title": "Média anual · % dos atletas com minutos",
+            "a": [period_a["avg_u20_players_pct"], period_a["avg_u23_players_pct"]],
+            "b": [period_b["avg_u20_players_pct"], period_b["avg_u23_players_pct"]],
+            "ylabel": "% dos atletas",
         },
     ]
 
-    for idx, panel in enumerate(panels):
+    for panel in panels:
         ax = fig.add_axes(panel["rect"])
         bars_a = ax.bar([i - width / 2 for i in x], panel["a"], width,
                         color=C_PERIOD_A, label=period_a["label"], zorder=3)
@@ -558,19 +557,17 @@ def page_period_bars(pdf: PdfPages, period_a: dict, period_b: dict,
         ax.set_xticklabels(labels, fontsize=11.5, color=INK)
         ax.set_xlim(-0.55, 1.55)
         ax.set_ylim(0, max(panel["a"] + panel["b"]) * 1.42)
-        ax.yaxis.set_major_formatter(
-            (lambda v, _: fmt_int(v)) if idx == 0 else (lambda v, _: fmt_pct(v, 0))
-        )
+        ax.yaxis.set_major_formatter(lambda v, _: fmt_pct(v, 0))
 
         for bars, values in ((bars_a, panel["a"]), (bars_b, panel["b"])):
             for bar, value in zip(bars, values):
                 ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height(),
-                        panel["fmt"](value), ha="center", va="bottom",
+                        fmt_pct(value), ha="center", va="bottom",
                         fontsize=9.5, color=INK, fontweight="bold")
 
         for i, (prev, curr) in enumerate(zip(panel["a"], panel["b"])):
             ax.text(
-                i, 0.94, fmt_delta(prev, curr), transform=ax.get_xaxis_transform(),
+                i, 0.94, fmt_delta_pp(prev, curr), transform=ax.get_xaxis_transform(),
                 ha="center", va="center", fontsize=10.5, color=C_NEGATIVE,
                 fontweight="bold",
                 bbox={"boxstyle": "round,pad=0.4", "facecolor": BAND, "edgecolor": "none"},
@@ -587,8 +584,8 @@ def page_period_bars(pdf: PdfPages, period_a: dict, period_b: dict,
 
     fig.text(
         MARGIN_L, 0.125,
-        "A média anual neutraliza a diferença de volume entre as temporadas — inclusive a de 2026, ainda em curso.\n"
-        "Os rótulos em destaque indicam a variação entre os dois blocos de quatro temporadas.",
+        "Cada barra é a média dos percentuais anuais do bloco — método seguro com a temporada 2026 parcial.\n"
+        "Os rótulos em destaque indicam a variação em pontos percentuais (p.p.) entre os dois blocos.",
         fontsize=9.5, color=MUTED, va="top", linespacing=1.6,
     )
     draw_footer(fig, page, total)
@@ -599,17 +596,16 @@ def page_table(pdf: PdfPages, rows: list[dict], period_a: dict, period_b: dict,
                page: int, total: int) -> None:
     fig = new_page()
     draw_header(fig, "Dados detalhados", "Tabela por temporada",
-                "Minutos de jogadores de linha, recorte sub-20 e sub-23 e número de atletas.")
+                "Indicadores relativos por ano — percentuais de minutos e de atletas com minutos.")
 
     columns = [
         ("Temporada", 0.00, "left"),
-        ("Total de minutos", 0.19, "right"),
-        ("Sub-20", 0.36, "right"),
-        ("% sub-20", 0.47, "right"),
-        ("Atletas sub-20", 0.585, "right"),
-        ("Sub-23", 0.70, "right"),
-        ("% sub-23", 0.805, "right"),
-        ("Atletas sub-23", 0.93, "right"),
+        ("% min. sub-20", 0.18, "right"),
+        ("% atl. sub-20", 0.33, "right"),
+        ("Nº sub-20", 0.46, "right"),
+        ("% min. sub-23", 0.59, "right"),
+        ("% atl. sub-23", 0.74, "right"),
+        ("Nº sub-23", 0.87, "right"),
     ]
 
     span = MARGIN_R - MARGIN_L
@@ -635,12 +631,11 @@ def page_table(pdf: PdfPages, rows: list[dict], period_a: dict, period_b: dict,
         season = f"{row['year']}" + ("  · parcial" if row["partial"] else "")
         values = [
             (season, "left", INK, "bold"),
-            (fmt_int(row["total_minutes"]), "right", MUTED, "normal"),
-            (fmt_int(row["u20_minutes"]), "right", INK, "normal"),
             (fmt_pct(row["u20_pct"], 2), "right", C_U20, "bold"),
+            (fmt_pct(row["u20_players_pct"], 2), "right", MUTED, "normal"),
             (fmt_int(row["u20_players"]), "right", MUTED, "normal"),
-            (fmt_int(row["u23_minutes"]), "right", INK, "normal"),
             (fmt_pct(row["u23_pct"], 2), "right", C_U23, "bold"),
+            (fmt_pct(row["u23_players_pct"], 2), "right", MUTED, "normal"),
             (fmt_int(row["u23_players"]), "right", MUTED, "normal"),
         ]
         for (name, pos, _), (text, align, color, weight) in zip(columns, values):
@@ -652,11 +647,12 @@ def page_table(pdf: PdfPages, rows: list[dict], period_a: dict, period_b: dict,
         Line2D([MARGIN_L, MARGIN_R], [summary_y + 0.038, summary_y + 0.038],
                color=INK, linewidth=1.1, transform=fig.transFigure)
     )
-    for block, color in ((period_a, C_PERIOD_A), (period_b, C_PERIOD_B)):
+    for block in (period_a, period_b):
         text = (
-            f"{block['label']}   ·   sub-20 {fmt_int(block['u20_minutes'])} min "
-            f"({fmt_pct(block['u20_pct'])})   ·   sub-23 {fmt_int(block['u23_minutes'])} min "
-            f"({fmt_pct(block['u23_pct'])})"
+            f"{block['label']}   ·   média anual sub-20: {fmt_pct(block['avg_u20_pct'])} dos minutos, "
+            f"{fmt_pct(block['avg_u20_players_pct'])} dos atletas   ·   "
+            f"sub-23: {fmt_pct(block['avg_u23_pct'])} dos minutos, "
+            f"{fmt_pct(block['avg_u23_players_pct'])} dos atletas"
         )
         fig.text(MARGIN_L, summary_y, text, fontsize=10, color=INK, va="top")
         summary_y -= 0.042
