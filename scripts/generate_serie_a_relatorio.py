@@ -11,8 +11,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 from pathlib import Path
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.lines import Line2D
+from matplotlib.patches import FancyBboxPatch, Rectangle
 
 ROOT = Path(__file__).resolve().parents[1]
 REPORT_PATH = ROOT / "reports" / "serie_a_sub20_sub23_relatorio.pdf"
@@ -35,6 +38,24 @@ SEASONS = {
 PERIOD_A = [2019, 2020, 2021, 2022]
 PERIOD_B = [2023, 2024, 2025, 2026]
 
+PAGE_SIZE = (11.69, 8.27)  # A4 paisagem
+MARGIN_L = 0.062
+MARGIN_R = 0.938
+
+INK = "#11181F"
+MUTED = "#6B7682"
+RULE = "#DFE4E9"
+CANVAS = "#FFFFFF"
+BAND = "#F4F6F8"
+
+C_U20 = "#1F5F8B"
+C_U23 = "#C1663F"
+C_PERIOD_A = "#B7C6D1"
+C_PERIOD_B = "#1F5F8B"
+C_NEGATIVE = "#A23B2C"
+
+
+# ---------------------------------------------------------------- coleta
 
 def fetch(url: str) -> bytes:
     req = urllib.request.Request(url, headers=UA)
@@ -163,7 +184,7 @@ def collect_season_stats(dob_by_id: dict[int, date]) -> list[dict]:
         season_players[year] = players
         all_ids.update(p["id"] for p in players)
 
-    if len(dob_by_id) < len(all_ids):
+    if not all_ids.issubset(dob_by_id):
         dob_by_id.update(load_or_build_dob_cache(all_ids))
 
     for year, players in sorted(season_players.items()):
@@ -222,206 +243,462 @@ def aggregate_period(rows: list[dict], years: list[int]) -> dict:
     }
 
 
-def add_text_page(pdf: PdfPages, title: str, paragraphs: list[str]) -> None:
-    fig, ax = plt.subplots(figsize=(11.69, 8.27))
-    ax.axis("off")
-    ax.text(0.05, 0.92, title, fontsize=20, fontweight="bold", va="top")
-    y = 0.84
-    for paragraph in paragraphs:
-        wrapped = textwrap.fill(paragraph, width=105)
-        ax.text(0.05, y, wrapped, fontsize=11, va="top")
-        y -= 0.06 + 0.018 * wrapped.count("\n")
-    pdf.savefig(fig, bbox_inches="tight")
+# ---------------------------------------------------------------- estilo
+
+def setup_style() -> None:
+    available = {f.name for f in mpl.font_manager.fontManager.ttflist}
+    family = [f for f in ("Inter", "Liberation Sans", "DejaVu Sans") if f in available]
+    mpl.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "font.sans-serif": family or ["DejaVu Sans"],
+            "figure.facecolor": CANVAS,
+            "axes.facecolor": CANVAS,
+            "axes.edgecolor": RULE,
+            "axes.labelcolor": MUTED,
+            "axes.titlecolor": INK,
+            "text.color": INK,
+            "xtick.color": MUTED,
+            "ytick.color": MUTED,
+            "xtick.labelsize": 9.5,
+            "ytick.labelsize": 9.5,
+            "axes.titlesize": 12,
+            "axes.labelsize": 9.5,
+            "legend.frameon": False,
+            "pdf.fonttype": 42,
+        }
+    )
+
+
+def fmt_int(value: float) -> str:
+    return f"{value:,.0f}".replace(",", ".")
+
+
+def fmt_pct(value: float, decimals: int = 1) -> str:
+    return f"{value:.{decimals}f}%".replace(".", ",")
+
+
+def fmt_delta(previous: float, current: float) -> str:
+    change = 100 * (current - previous) / previous
+    return f"{change:+.1f}%".replace(".", ",")
+
+
+# ---------------------------------------------------------------- página
+
+def new_page() -> plt.Figure:
+    return plt.figure(figsize=PAGE_SIZE)
+
+
+def draw_header(fig: plt.Figure, eyebrow: str, title: str, subtitle: str = "") -> None:
+    fig.text(MARGIN_L, 0.945, " ".join(eyebrow.upper()), fontsize=7.5,
+             color=MUTED, fontweight="bold")
+    fig.text(MARGIN_L, 0.897, title, fontsize=19, color=INK, fontweight="bold", va="top")
+    if subtitle:
+        fig.text(MARGIN_L, 0.852, subtitle, fontsize=10.5, color=MUTED, va="top")
+    fig.add_artist(
+        Line2D(
+            [MARGIN_L, MARGIN_R], [0.905, 0.905],
+            color=RULE, linewidth=0.9, transform=fig.transFigure,
+        )
+    )
+    fig.add_artist(
+        Line2D(
+            [MARGIN_L, MARGIN_L + 0.055], [0.905, 0.905],
+            color=C_U20, linewidth=2.6, transform=fig.transFigure,
+        )
+    )
+
+
+def draw_footer(fig: plt.Figure, page: int, total: int) -> None:
+    fig.add_artist(
+        Line2D(
+            [MARGIN_L, MARGIN_R], [0.062, 0.062],
+            color=RULE, linewidth=0.8, transform=fig.transFigure,
+        )
+    )
+    fig.text(
+        MARGIN_L, 0.038, "Série A · Minutos sub-20 e sub-23 · Fonte: FotMob",
+        fontsize=8, color=MUTED,
+    )
+    fig.text(
+        MARGIN_R, 0.038, f"{page:02d} / {total:02d}",
+        fontsize=8, color=MUTED, ha="right",
+    )
+
+
+def save_page(pdf: PdfPages, fig: plt.Figure) -> None:
+    pdf.savefig(fig)
     plt.close(fig)
 
 
-def plot_line_charts(pdf: PdfPages, rows: list[dict]) -> None:
-    years = [r["year"] for r in rows]
-    u20 = [r["u20_minutes"] for r in rows]
-    u23 = [r["u23_minutes"] for r in rows]
-    u20_pct = [r["u20_pct"] for r in rows]
-    u23_pct = [r["u23_pct"] for r in rows]
+def style_axes(ax: plt.Axes, y_grid: bool = True) -> None:
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    ax.spines["left"].set_color(RULE)
+    ax.spines["bottom"].set_color(RULE)
+    ax.tick_params(length=0, pad=6)
+    if y_grid:
+        ax.grid(axis="y", color=RULE, linewidth=0.8)
+        ax.set_axisbelow(True)
 
-    fig, axes = plt.subplots(2, 1, figsize=(11.69, 8.27), sharex=True)
 
-    axes[0].plot(years, u20, marker="o", linewidth=2.2, label="Sub-20")
-    axes[0].plot(years, u23, marker="o", linewidth=2.2, label="Sub-23")
-    axes[0].set_title("Minutos jogados por ano (sem goleiros)")
-    axes[0].set_ylabel("Minutos")
-    axes[0].grid(True, alpha=0.3)
-    axes[0].legend()
-    if rows[-1]["partial"]:
-        axes[0].annotate(
-            "2026 parcial",
-            xy=(years[-1], u23[-1]),
-            xytext=(years[-1] - 0.7, u23[-1] + 20000),
-            arrowprops={"arrowstyle": "->"},
-            fontsize=9,
+def kpi_card(fig: plt.Figure, x: float, y: float, w: float, h: float,
+             label: str, value: str, note: str, accent: str) -> None:
+    fig.add_artist(
+        FancyBboxPatch(
+            (x, y), w, h,
+            boxstyle="round,pad=0,rounding_size=0.012",
+            transform=fig.transFigure, facecolor=BAND, edgecolor="none",
+        )
+    )
+    fig.add_artist(
+        Rectangle(
+            (x, y), 0.0042, h,
+            transform=fig.transFigure, facecolor=accent, edgecolor="none",
+        )
+    )
+    fig.text(x + 0.022, y + h - 0.034, label, fontsize=8.5, color=MUTED, va="top")
+    fig.text(x + 0.022, y + h - 0.072, value, fontsize=21, color=INK,
+             fontweight="bold", va="top")
+    fig.text(x + 0.022, y + 0.022, note, fontsize=8.5, color=MUTED, va="bottom")
+
+
+# ---------------------------------------------------------------- páginas
+
+def page_cover(pdf: PdfPages, rows: list[dict], period_a: dict, period_b: dict) -> None:
+    fig = new_page()
+    fig.add_artist(
+        Rectangle((0, 0.72), 1, 0.28, transform=fig.transFigure,
+                  facecolor=BAND, edgecolor="none")
+    )
+    fig.add_artist(
+        Rectangle((0, 0.72), 1, 0.006, transform=fig.transFigure,
+                  facecolor=C_U20, edgecolor="none")
+    )
+
+    fig.text(MARGIN_L, 0.905, " ".join("RELATÓRIO ANALÍTICO"), fontsize=8,
+             color=MUTED, fontweight="bold")
+    fig.text(MARGIN_L, 0.845, "Minutos de sub-20 e sub-23", fontsize=33,
+             color=INK, fontweight="bold", va="top")
+    fig.text(MARGIN_L, 0.775, "Campeonato Brasileiro Série A · temporadas 2019 a 2026",
+             fontsize=13, color=MUTED, va="top")
+
+    fig.text(MARGIN_L, 0.645,
+             "Comparativo da utilização de atletas jovens, ano a ano e em dois blocos\n"
+             "de quatro temporadas, considerando apenas jogadores de linha.",
+             fontsize=12, color=INK, va="top", linespacing=1.6)
+
+    cards = [
+        ("Sub-20 · média por temporada", fmt_int(period_b["avg_u20"]),
+         f"{period_a['label']} → {period_b['label']}: {fmt_delta(period_a['avg_u20'], period_b['avg_u20'])}",
+         C_U20),
+        ("Sub-23 · média por temporada", fmt_int(period_b["avg_u23"]),
+         f"{period_a['label']} → {period_b['label']}: {fmt_delta(period_a['avg_u23'], period_b['avg_u23'])}",
+         C_U23),
+        ("Participação sub-23", fmt_pct(period_b["u23_pct"]),
+         f"antes: {fmt_pct(period_a['u23_pct'])} dos minutos", C_U23),
+    ]
+    width = 0.268
+    gap = 0.021
+    for idx, (label, value, note, accent) in enumerate(cards):
+        kpi_card(fig, MARGIN_L + idx * (width + gap), 0.235, width, 0.18,
+                 label, value, note, accent)
+
+    fig.text(MARGIN_L, 0.155,
+             "Sub-20: nascidos em Y−20 ou depois  ·  Sub-23: nascidos em Y−23 ou depois  ·  goleiros excluídos",
+             fontsize=9.5, color=MUTED, va="top")
+    fig.text(MARGIN_L, 0.112,
+             f"Fonte: FotMob (mins_played, liga 268)  ·  Gerado em {date.today().strftime('%d/%m/%Y')}",
+             fontsize=9.5, color=MUTED, va="top")
+    save_page(pdf, fig)
+
+
+def page_methodology(pdf: PdfPages, rows: list[dict], page: int, total: int) -> None:
+    fig = new_page()
+    draw_header(fig, "Metodologia", "Como os números foram apurados",
+                "Critérios de recorte, fonte dos dados e limitações da amostra.")
+
+    blocks = [
+        ("Fonte", "Ranking mins_played do FotMob para a Série A (liga 268), "
+                  "uma consulta por temporada, de 2019 a 2026."),
+        ("Recorte de posição", "Goleiros excluídos da base. Todos os percentuais têm como "
+                               "denominador apenas os minutos de jogadores de linha."),
+        ("Sub-20", "No ano Y, atletas nascidos em Y−20 ou depois. Em 2019, portanto, "
+                   "todos os nascidos a partir de 1999."),
+        ("Sub-23", "No ano Y, atletas nascidos em Y−23 ou depois. Em 2019, "
+                   "todos os nascidos a partir de 1996."),
+        ("Datas de nascimento", "Obtidas nos elencos e nos perfis individuais do FotMob; "
+                                "cobertura de 100% dos atletas com minutos registrados."),
+        ("Limitação", "A temporada 2026 ainda está em andamento. Volumes absolutos desse ano "
+                      "são parciais; as comparações percentuais seguem válidas."),
+    ]
+
+    y = 0.79
+    for title, body in blocks:
+        fig.text(MARGIN_L, y, title, fontsize=11, color=INK, fontweight="bold", va="top")
+        fig.text(MARGIN_L + 0.20, y, textwrap.fill(body, width=88), fontsize=10.5,
+                 color=MUTED, va="top", linespacing=1.55)
+        y -= 0.108
+        fig.add_artist(
+            Line2D([MARGIN_L, MARGIN_R], [y + 0.042, y + 0.042],
+                   color=RULE, linewidth=0.7, transform=fig.transFigure)
         )
 
-    axes[1].plot(years, u20_pct, marker="o", linewidth=2.2, label="Sub-20 (% do total)")
-    axes[1].plot(years, u23_pct, marker="o", linewidth=2.2, label="Sub-23 (% do total)")
-    axes[1].set_title("Participação relativa na temporada")
-    axes[1].set_xlabel("Temporada")
-    axes[1].set_ylabel("% dos minutos")
-    axes[1].grid(True, alpha=0.3)
-    axes[1].legend()
-
-    fig.tight_layout()
-    pdf.savefig(fig, bbox_inches="tight")
-    plt.close(fig)
+    draw_footer(fig, page, total)
+    save_page(pdf, fig)
 
 
-def plot_period_bars(pdf: PdfPages, period_a: dict, period_b: dict) -> None:
-    fig, axes = plt.subplots(1, 2, figsize=(11.69, 8.27))
+def page_lines(pdf: PdfPages, rows: list[dict], page: int, total: int) -> None:
+    fig = new_page()
+    draw_header(fig, "Evolução anual", "Minutos por temporada",
+                "Volume absoluto e participação relativa dos atletas jovens, ano a ano.")
 
-    labels = [period_a["label"], period_b["label"]]
-    x = range(len(labels))
-    width = 0.35
+    years = [r["year"] for r in rows]
+    partial_year = next((r["year"] for r in rows if r["partial"]), None)
 
-    u20_totals = [period_a["u20_minutes"], period_b["u20_minutes"]]
-    u23_totals = [period_a["u23_minutes"], period_b["u23_minutes"]]
-    bars_u20 = axes[0].bar([i - width / 2 for i in x], u20_totals, width, label="Sub-20")
-    bars_u23 = axes[0].bar([i + width / 2 for i in x], u23_totals, width, label="Sub-23")
-    axes[0].set_title("Minutos totais: 4 anos vs 4 anos")
-    axes[0].set_xticks(list(x), labels)
-    axes[0].set_ylabel("Minutos acumulados")
-    axes[0].legend()
-    axes[0].grid(axis="y", alpha=0.3)
-    for bars in (bars_u20, bars_u23):
-        for bar in bars:
-            axes[0].text(
-                bar.get_x() + bar.get_width() / 2,
-                bar.get_height(),
-                f"{int(bar.get_height()):,}".replace(",", "."),
-                ha="center",
-                va="bottom",
-                fontsize=8,
+    plot_left = MARGIN_L + 0.038
+    plot_width = MARGIN_R - plot_left - 0.035
+    ax1 = fig.add_axes((plot_left, 0.425, plot_width, 0.315))
+    ax2 = fig.add_axes((plot_left, 0.125, plot_width, 0.185))
+
+    for key, color, label in (("u20_minutes", C_U20, "Sub-20"),
+                              ("u23_minutes", C_U23, "Sub-23")):
+        values = [r[key] for r in rows]
+        ax1.plot(years, values, color=color, linewidth=2.4, label=label,
+                 marker="o", markersize=5.5, markerfacecolor=CANVAS,
+                 markeredgewidth=1.8, zorder=3)
+        ax1.annotate(fmt_int(values[-1]), (years[-1], values[-1]),
+                     xytext=(9, 0), textcoords="offset points", fontsize=9,
+                     color=color, fontweight="bold", va="center")
+
+    style_axes(ax1)
+    ax1.set_title("Minutos jogados por temporada", pad=12, loc="left", fontweight="bold")
+    ax1.set_ylabel("Minutos")
+    ax1.set_xlim(years[0] - 0.35, years[-1] + 0.55)
+    ax1.set_xticks(years)
+    ticks = [0, 50000, 100000, 150000, 200000, 250000]
+    ax1.set_yticks(ticks)
+    ax1.set_yticklabels([fmt_int(v) for v in ticks])
+
+    ax2.plot(years, [r["u20_pct"] for r in rows], color=C_U20, linewidth=2.4,
+             marker="o", markersize=5.5, markerfacecolor=CANVAS, markeredgewidth=1.8, zorder=3)
+    ax2.plot(years, [r["u23_pct"] for r in rows], color=C_U23, linewidth=2.4,
+             marker="o", markersize=5.5, markerfacecolor=CANVAS, markeredgewidth=1.8, zorder=3)
+    style_axes(ax2)
+    ax2.set_title("Participação no total de minutos (jogadores de linha)", pad=12,
+                  loc="left", fontweight="bold")
+    ax2.set_ylabel("% dos minutos")
+    ax2.set_xlim(years[0] - 0.35, years[-1] + 0.55)
+    ax2.set_xticks(years)
+    ax2.yaxis.set_major_formatter(lambda v, _: fmt_pct(v, 0))
+
+    if partial_year is not None:
+        for ax in (ax1, ax2):
+            ax.axvspan(partial_year - 0.4, years[-1] + 0.55, color=BAND, zorder=0)
+            ax.text(partial_year, 0.93, "parcial", transform=ax.get_xaxis_transform(),
+                    fontsize=8, color=MUTED, ha="center", va="center")
+
+    fig.legend(
+        handles=[
+            Line2D([], [], color=C_U20, linewidth=2.4, marker="o", markersize=5.5,
+                   markerfacecolor=CANVAS, markeredgewidth=1.8, label="Sub-20"),
+            Line2D([], [], color=C_U23, linewidth=2.4, marker="o", markersize=5.5,
+                   markerfacecolor=CANVAS, markeredgewidth=1.8, label="Sub-23"),
+        ],
+        loc="upper right", bbox_to_anchor=(MARGIN_R, 0.845), ncols=2,
+        fontsize=10.5, handlelength=1.8, columnspacing=1.8,
+    )
+
+    draw_footer(fig, page, total)
+    save_page(pdf, fig)
+
+
+def page_period_bars(pdf: PdfPages, period_a: dict, period_b: dict,
+                     page: int, total: int) -> None:
+    fig = new_page()
+    draw_header(
+        fig, "Comparativo de blocos", f"{period_a['label']} vs {period_b['label']}",
+        "Quatro temporadas contra quatro temporadas, em média anual e em participação relativa.",
+    )
+
+    labels = ["Sub-20", "Sub-23"]
+    x = [0, 1]
+    width = 0.3
+
+    panel_width = 0.372
+    panels = [
+        {
+            "rect": (MARGIN_L + 0.038, 0.195, panel_width, 0.50),
+            "title": "Média de minutos por temporada",
+            "a": [period_a["avg_u20"], period_a["avg_u23"]],
+            "b": [period_b["avg_u20"], period_b["avg_u23"]],
+            "fmt": fmt_int,
+            "ylabel": "Minutos por temporada",
+        },
+        {
+            "rect": (MARGIN_R - panel_width, 0.195, panel_width, 0.50),
+            "title": "Participação no total de minutos",
+            "a": [period_a["u20_pct"], period_a["u23_pct"]],
+            "b": [period_b["u20_pct"], period_b["u23_pct"]],
+            "fmt": lambda v: fmt_pct(v),
+            "ylabel": "% dos minutos",
+        },
+    ]
+
+    for idx, panel in enumerate(panels):
+        ax = fig.add_axes(panel["rect"])
+        bars_a = ax.bar([i - width / 2 for i in x], panel["a"], width,
+                        color=C_PERIOD_A, label=period_a["label"], zorder=3)
+        bars_b = ax.bar([i + width / 2 for i in x], panel["b"], width,
+                        color=C_PERIOD_B, label=period_b["label"], zorder=3)
+        style_axes(ax)
+        ax.set_title(panel["title"], pad=12, loc="left", fontweight="bold")
+        ax.set_ylabel(panel["ylabel"])
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels, fontsize=11.5, color=INK)
+        ax.set_xlim(-0.55, 1.55)
+        ax.set_ylim(0, max(panel["a"] + panel["b"]) * 1.42)
+        ax.yaxis.set_major_formatter(
+            (lambda v, _: fmt_int(v)) if idx == 0 else (lambda v, _: fmt_pct(v, 0))
+        )
+
+        for bars, values in ((bars_a, panel["a"]), (bars_b, panel["b"])):
+            for bar, value in zip(bars, values):
+                ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height(),
+                        panel["fmt"](value), ha="center", va="bottom",
+                        fontsize=9.5, color=INK, fontweight="bold")
+
+        for i, (prev, curr) in enumerate(zip(panel["a"], panel["b"])):
+            ax.text(
+                i, 0.94, fmt_delta(prev, curr), transform=ax.get_xaxis_transform(),
+                ha="center", va="center", fontsize=10.5, color=C_NEGATIVE,
+                fontweight="bold",
+                bbox={"boxstyle": "round,pad=0.4", "facecolor": BAND, "edgecolor": "none"},
             )
 
-    u20_avg = [period_a["avg_u20"], period_b["avg_u20"]]
-    u23_avg = [period_a["avg_u23"], period_b["avg_u23"]]
-    u20_pct = [period_a["u20_pct"], period_b["u20_pct"]]
-    u23_pct = [period_a["u23_pct"], period_b["u23_pct"]]
-
-    bars_u20_avg = axes[1].bar([i - width / 2 for i in x], u20_avg, width, label="Sub-20 (média/ano)")
-    bars_u23_avg = axes[1].bar([i + width / 2 for i in x], u23_avg, width, label="Sub-23 (média/ano)")
-    axes[1].set_title("Média anual e participação percentual")
-    axes[1].set_xticks(list(x), labels)
-    axes[1].set_ylabel("Minutos médios por temporada")
-    axes[1].legend(loc="upper left")
-    axes[1].grid(axis="y", alpha=0.3)
-    for bar in bars_u20_avg:
-        axes[1].text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height(),
-            f"{int(bar.get_height()):,}".replace(",", "."),
-            ha="center",
-            va="bottom",
-            fontsize=8,
-        )
-    for bar in bars_u23_avg:
-        axes[1].text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height(),
-            f"{int(bar.get_height()):,}".replace(",", "."),
-            ha="center",
-            va="bottom",
-            fontsize=8,
-        )
-
-    pct_text = (
-        f"Share sub-20: {period_a['u20_pct']:.1f}% → {period_b['u20_pct']:.1f}% | "
-        f"Share sub-23: {period_a['u23_pct']:.1f}% → {period_b['u23_pct']:.1f}%"
+    fig.legend(
+        handles=[
+            Rectangle((0, 0), 1, 1, facecolor=C_PERIOD_A, label=period_a["label"]),
+            Rectangle((0, 0), 1, 1, facecolor=C_PERIOD_B, label=period_b["label"]),
+        ],
+        loc="upper right", bbox_to_anchor=(MARGIN_R, 0.845), ncols=2,
+        fontsize=10.5, handlelength=1.5, columnspacing=1.8,
     )
-    fig.suptitle("Comparativo 2019–2022 vs 2023–2026", fontsize=14, fontweight="bold")
-    fig.text(0.5, 0.02, pct_text, ha="center", fontsize=10)
 
-    fig.tight_layout(rect=(0, 0.05, 1, 0.95))
-    pdf.savefig(fig, bbox_inches="tight")
-    plt.close(fig)
+    fig.text(
+        MARGIN_L, 0.125,
+        "A média anual neutraliza a diferença de volume entre as temporadas — inclusive a de 2026, ainda em curso.\n"
+        "Os rótulos em destaque indicam a variação entre os dois blocos de quatro temporadas.",
+        fontsize=9.5, color=MUTED, va="top", linespacing=1.6,
+    )
+    draw_footer(fig, page, total)
+    save_page(pdf, fig)
 
 
-def plot_yearly_table(pdf: PdfPages, rows: list[dict]) -> None:
-    fig, ax = plt.subplots(figsize=(11.69, 8.27))
-    ax.axis("off")
-    ax.set_title("Tabela anual (minutos e participação)", fontsize=14, fontweight="bold", pad=16)
+def page_table(pdf: PdfPages, rows: list[dict], period_a: dict, period_b: dict,
+               page: int, total: int) -> None:
+    fig = new_page()
+    draw_header(fig, "Dados detalhados", "Tabela por temporada",
+                "Minutos de jogadores de linha, recorte sub-20 e sub-23 e número de atletas.")
 
     columns = [
-        "Ano",
-        "Total min.",
-        "Sub-20 min.",
-        "Sub-20 %",
-        "Sub-23 min.",
-        "Sub-23 %",
-        "Obs.",
+        ("Temporada", 0.00, "left"),
+        ("Total de minutos", 0.19, "right"),
+        ("Sub-20", 0.36, "right"),
+        ("% sub-20", 0.47, "right"),
+        ("Atletas sub-20", 0.585, "right"),
+        ("Sub-23", 0.70, "right"),
+        ("% sub-23", 0.805, "right"),
+        ("Atletas sub-23", 0.93, "right"),
     ]
-    table_rows = []
-    for row in rows:
-        table_rows.append(
-            [
-                str(row["year"]),
-                f"{row['total_minutes']:,}".replace(",", "."),
-                f"{row['u20_minutes']:,}".replace(",", "."),
-                f"{row['u20_pct']:.2f}%",
-                f"{row['u23_minutes']:,}".replace(",", "."),
-                f"{row['u23_pct']:.2f}%",
-                "Parcial" if row["partial"] else "",
-            ]
-        )
 
-    table = ax.table(
-        cellText=table_rows,
-        colLabels=columns,
-        loc="center",
-        cellLoc="center",
+    span = MARGIN_R - MARGIN_L
+    top = 0.795
+    row_h = 0.062
+
+    for name, pos, align in columns:
+        fig.text(MARGIN_L + pos * span, top, name, fontsize=8.5, color=MUTED,
+                 ha=align, fontweight="bold")
+    fig.add_artist(
+        Line2D([MARGIN_L, MARGIN_R], [top - 0.018, top - 0.018],
+               color=INK, linewidth=1.1, transform=fig.transFigure)
     )
-    table.auto_set_font_size(False)
-    table.set_fontsize(9)
-    table.scale(1, 1.4)
-    pdf.savefig(fig, bbox_inches="tight")
-    plt.close(fig)
+
+    for idx, row in enumerate(rows):
+        y = top - 0.052 - idx * row_h
+        if idx % 2 == 1:
+            fig.add_artist(
+                Rectangle((MARGIN_L - 0.012, y - 0.018), span + 0.024, row_h * 0.82,
+                          transform=fig.transFigure, facecolor=BAND, edgecolor="none",
+                          zorder=0)
+            )
+        season = f"{row['year']}" + ("  · parcial" if row["partial"] else "")
+        values = [
+            (season, "left", INK, "bold"),
+            (fmt_int(row["total_minutes"]), "right", MUTED, "normal"),
+            (fmt_int(row["u20_minutes"]), "right", INK, "normal"),
+            (fmt_pct(row["u20_pct"], 2), "right", C_U20, "bold"),
+            (fmt_int(row["u20_players"]), "right", MUTED, "normal"),
+            (fmt_int(row["u23_minutes"]), "right", INK, "normal"),
+            (fmt_pct(row["u23_pct"], 2), "right", C_U23, "bold"),
+            (fmt_int(row["u23_players"]), "right", MUTED, "normal"),
+        ]
+        for (name, pos, _), (text, align, color, weight) in zip(columns, values):
+            fig.text(MARGIN_L + pos * span, y, text, fontsize=10, color=color,
+                     ha=align, fontweight=weight, zorder=1)
+
+    summary_y = top - 0.052 - len(rows) * row_h - 0.03
+    fig.add_artist(
+        Line2D([MARGIN_L, MARGIN_R], [summary_y + 0.038, summary_y + 0.038],
+               color=INK, linewidth=1.1, transform=fig.transFigure)
+    )
+    for block, color in ((period_a, C_PERIOD_A), (period_b, C_PERIOD_B)):
+        text = (
+            f"{block['label']}   ·   sub-20 {fmt_int(block['u20_minutes'])} min "
+            f"({fmt_pct(block['u20_pct'])})   ·   sub-23 {fmt_int(block['u23_minutes'])} min "
+            f"({fmt_pct(block['u23_pct'])})"
+        )
+        fig.text(MARGIN_L, summary_y, text, fontsize=10, color=INK, va="top")
+        summary_y -= 0.042
+
+    draw_footer(fig, page, total)
+    save_page(pdf, fig)
 
 
 def generate_report() -> Path:
+    setup_style()
     REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+    dob_by_id: dict[int, date] = {}
     if CACHE_PATH.exists():
         cache = json.loads(CACHE_PATH.read_text(encoding="utf-8"))
         dob_by_id = {int(k): parse_iso_date(v) for k, v in cache.items()}
-    else:
-        dob_by_id = {}
 
     rows = collect_season_stats(dob_by_id)
     period_a = aggregate_period(rows, PERIOD_A)
     period_b = aggregate_period(rows, PERIOD_B)
 
-    methodology = [
-        "Fonte: FotMob — estatística mins_played da Série A (liga 268), temporadas 2019 a 2026.",
-        "Goleiros excluídos (posição FotMob 11). Demais jogadores de linha entram na base de minutos.",
-        "Sub-20 no ano Y: atletas nascidos em Y−20 ou depois (ex.: 2019 → nascidos desde 1999).",
-        "Sub-23 no ano Y: atletas nascidos em Y−23 ou depois (ex.: 2019 → nascidos desde 1996).",
-        "A temporada 2026 está em andamento no FotMob; volumes absolutos desse ano são parciais.",
-        "Comparativo 4×4: bloco 2019–2022 versus bloco 2023–2026, com médias anuais e percentuais.",
-    ]
-
+    total_pages = 4
     with PdfPages(REPORT_PATH) as pdf:
-        add_text_page(
-            pdf,
-            "Relatório Série A — Minutos Sub-20 e Sub-23",
-            [
-                "Análise comparativa de minutos jogados por atletas de categorias sub-20 e sub-23 "
-                "na Série A brasileira, com recorte anual e agregação em dois blocos de quatro temporadas.",
-                *methodology,
-            ],
+        pdf.infodict().update(
+            {
+                "Title": "Série A — Minutos sub-20 e sub-23 (2019–2026)",
+                "Subject": "Comparativo de utilização de atletas jovens na Série A",
+                "Creator": "scripts/generate_serie_a_relatorio.py",
+            }
         )
-        plot_line_charts(pdf, rows)
-        plot_period_bars(pdf, period_a, period_b)
-        plot_yearly_table(pdf, rows)
+        page_cover(pdf, rows, period_a, period_b)
+        page_lines(pdf, rows, 1, total_pages)
+        page_period_bars(pdf, period_a, period_b, 2, total_pages)
+        page_table(pdf, rows, period_a, period_b, 3, total_pages)
+        page_methodology(pdf, rows, 4, total_pages)
 
     meta_path = REPORT_PATH.with_suffix(".json")
     meta_path.write_text(
-        json.dumps({"yearly": rows, "period_a": period_a, "period_b": period_b}, ensure_ascii=False, indent=2),
+        json.dumps(
+            {"yearly": rows, "period_a": period_a, "period_b": period_b},
+            ensure_ascii=False, indent=2,
+        ),
         encoding="utf-8",
     )
     return REPORT_PATH
