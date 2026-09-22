@@ -1,0 +1,238 @@
+{
+  "yearly": [
+    {
+      "year": 2019,
+      "total_minutes": 680835,
+      "u20_minutes": 38084,
+      "u23_minutes": 156457,
+      "u20_players": 83,
+      "u23_players": 216,
+      "u20_pct": 5.593719476818906,
+      "u23_pct": 22.980164063245866,
+      "u20_players_pct": 13.009404388714733,
+      "u23_players_pct": 33.85579937304075,
+      "total_players": 638,
+      "partial": false
+    },
+    {
+      "year": 2020,
+      "total_minutes": 678417,
+      "u20_minutes": 69458,
+      "u23_minutes": 216049,
+      "u20_players": 140,
+      "u23_players": 302,
+      "u20_pct": 10.238245798675447,
+      "u23_pct": 31.84604748996561,
+      "u20_players_pct": 20.64896755162242,
+      "u23_players_pct": 44.54277286135693,
+      "total_players": 678,
+      "partial": false
+    },
+    {
+      "year": 2021,
+      "total_minutes": 681801,
+      "u20_minutes": 58489,
+      "u23_minutes": 185182,
+      "u20_players": 128,
+      "u23_players": 273,
+      "u20_pct": 8.578602847458423,
+      "u23_pct": 27.160711116586803,
+      "u20_players_pct": 19.161676646706585,
+      "u23_players_pct": 40.868263473053894,
+      "total_players": 668,
+      "partial": false
+    },
+    {
+      "year": 2022,
+      "total_minutes": 681644,
+      "u20_minutes": 35708,
+      "u23_minutes": 157543,
+      "u20_players": 108,
+      "u23_players": 258,
+      "u20_pct": 5.238511598429679,
+      "u23_pct": 23.112211066187044,
+      "u20_players_pct": 15.494978479196556,
+      "u23_players_pct": 37.01578192252511,
+      "total_players": 697,
+      "partial": false
+    },
+    {
+      "year": 2023,
+      "total_minutes": 682074,
+      "u20_minutes": 41724,
+      "u23_minutes": 149148,
+      "u20_players": 112,
+      "u23_players": 255,
+      "u20_pct": 6.117224817248569,
+      "u23_pct": 21.86683556329665,
+      "u20_players_pct": 16.25544267053701,
+      "u23_players_pct": 37.010159651669085,
+      "total_players": 689,
+      "partial": false
+    },
+    {
+      "year": 2024,
+      "total_minutes": 681631,
+      "u20_minutes": 31179,
+      "u23_minutes": 124985,
+      "u20_players": 100,
+      "u23_players": 215,
+      "u20_pct": 4.5741757637196665,
+      "u23_pct": 18.336167222441468,
+      "u20_players_pct": 15.060240963855422,
+      "u23_players_pct": 32.37951807228916,
+      "total_players": 664,
+      "partial": false
+    },
+    {
+      "year": 2025,
+      "total_minutes": 679281,
+      "u20_minutes": 34147,
+      "u23_minutes": 96851,
+      "u20_players": 110,
+      "u23_players": 199,
+      "u20_pct": 5.026932889334458,
+      "u23_pct": 14.257869718128433,
+      "u20_players_pct": 16.05839416058394,
+      "u23_players_pct": 29.05109489051095,
+      "total_players": 685,
+      "partial": false
+    },
+    {
+      "year": 2026,
+      "total_minutes": 496811,
+      "u20_minutes": 23814,
+      "u23_minutes": 76753,
+      "u20_players": 100,
+      "u23_players": 192,
+      "u20_pct": 4.79337212742874,
+      "u23_pct": 15.449134580353494,
+      "u20_players_pct": 15.037593984962406,
+      "u23_players_pct": 28.872180451127818,
+      "total_players": 665,
+      "partial": true
+    }
+  ],
+  "period_a": {
+    "years": [
+      2019,
+      2020,
+      2021,
+      2022
+    ],
+    "label": "2019–2022",
+    "avg_u20_pct": 7.412269930345614,
+    "avg_u23_pct": 26.27478343399633,
+    "med_u20_pct": 7.086161162138665,
+    "med_u23_pct": 25.136461091386924,
+    "avg_u20_players_pct": 17.078756766560073,
+    "avg_u23_players_pct": 39.070654407494175
+  },
+  "period_b": {
+    "years": [
+      2023,
+      2024,
+      2025,
+      2026
+    ],
+    "label": "2023–2026",
+    "avg_u20_pct": 5.127926399432859,
+    "avg_u23_pct": 17.47750177105501,
+    "med_u20_pct": 4.910152508381599,
+    "med_u23_pct": 16.89265090139748,
+    "avg_u20_players_pct": 15.602917944984695,
+    "avg_u23_players_pct": 31.828238266399254
+  },
+  "sales_yearly": [
+    {
+      "year": 2019,
+      "departures": 629,
+      "sales": 63,
+      "sales_abroad": 45,
+      "sales_abroad_u20": 8,
+      "sales_abroad_u23": 25,
+      "partial": false
+    },
+    {
+      "year": 2020,
+      "departures": 639,
+      "sales": 45,
+      "sales_abroad": 31,
+      "sales_abroad_u20": 6,
+      "sales_abroad_u23": 15,
+      "partial": false
+    },
+    {
+      "year": 2021,
+      "departures": 670,
+      "sales": 60,
+      "sales_abroad": 41,
+      "sales_abroad_u20": 11,
+      "sales_abroad_u23": 19,
+      "partial": false
+    },
+    {
+      "year": 2022,
+      "departures": 698,
+      "sales": 77,
+      "sales_abroad": 43,
+      "sales_abroad_u20": 8,
+      "sales_abroad_u23": 29,
+      "partial": false
+    },
+    {
+      "year": 2023,
+      "departures": 648,
+      "sales": 84,
+      "sales_abroad": 51,
+      "sales_abroad_u20": 11,
+      "sales_abroad_u23": 26,
+      "partial": false
+    },
+    {
+      "year": 2024,
+      "departures": 697,
+      "sales": 102,
+      "sales_abroad": 57,
+      "sales_abroad_u20": 17,
+      "sales_abroad_u23": 31,
+      "partial": false
+    },
+    {
+      "year": 2025,
+      "departures": 612,
+      "sales": 93,
+      "sales_abroad": 71,
+      "sales_abroad_u20": 21,
+      "sales_abroad_u23": 39,
+      "partial": false
+    }
+  ],
+  "sales_period_a": {
+    "years": [
+      2019,
+      2020,
+      2021,
+      2022
+    ],
+    "label": "2019–2022",
+    "seasons": 4,
+    "avg_u20": 8.25,
+    "avg_u23": 22.0,
+    "med_u20": 8.0,
+    "med_u23": 22.0
+  },
+  "sales_period_b": {
+    "years": [
+      2023,
+      2024,
+      2025
+    ],
+    "label": "2023–2025",
+    "seasons": 3,
+    "avg_u20": 16.333333333333332,
+    "avg_u23": 32.0,
+    "med_u20": 17,
+    "med_u23": 31
+  }
+}
