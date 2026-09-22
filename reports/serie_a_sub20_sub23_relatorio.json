@@ -142,5 +142,105 @@
     "med_u23_pct": 16.89265090139748,
     "avg_u20_players_pct": 15.602917944984695,
     "avg_u23_players_pct": 31.828238266399254
+  },
+  "sales_yearly": [
+    {
+      "year": 2019,
+      "departures": 629,
+      "sales": 63,
+      "sales_abroad": 45,
+      "sales_abroad_u20": 8,
+      "sales_abroad_u23": 25,
+      "partial": false
+    },
+    {
+      "year": 2020,
+      "departures": 639,
+      "sales": 45,
+      "sales_abroad": 31,
+      "sales_abroad_u20": 6,
+      "sales_abroad_u23": 15,
+      "partial": false
+    },
+    {
+      "year": 2021,
+      "departures": 670,
+      "sales": 60,
+      "sales_abroad": 41,
+      "sales_abroad_u20": 11,
+      "sales_abroad_u23": 19,
+      "partial": false
+    },
+    {
+      "year": 2022,
+      "departures": 698,
+      "sales": 77,
+      "sales_abroad": 43,
+      "sales_abroad_u20": 8,
+      "sales_abroad_u23": 29,
+      "partial": false
+    },
+    {
+      "year": 2023,
+      "departures": 648,
+      "sales": 84,
+      "sales_abroad": 51,
+      "sales_abroad_u20": 11,
+      "sales_abroad_u23": 26,
+      "partial": false
+    },
+    {
+      "year": 2024,
+      "departures": 697,
+      "sales": 102,
+      "sales_abroad": 57,
+      "sales_abroad_u20": 17,
+      "sales_abroad_u23": 31,
+      "partial": false
+    },
+    {
+      "year": 2025,
+      "departures": 612,
+      "sales": 93,
+      "sales_abroad": 71,
+      "sales_abroad_u20": 21,
+      "sales_abroad_u23": 39,
+      "partial": false
+    },
+    {
+      "year": 2026,
+      "departures": 244,
+      "sales": 25,
+      "sales_abroad": 19,
+      "sales_abroad_u20": 4,
+      "sales_abroad_u23": 10,
+      "partial": true
+    }
+  ],
+  "sales_period_a": {
+    "years": [
+      2019,
+      2020,
+      2021,
+      2022
+    ],
+    "label": "2019–2022",
+    "avg_u20": 8.25,
+    "avg_u23": 22.0,
+    "med_u20": 8.0,
+    "med_u23": 22.0
+  },
+  "sales_period_b": {
+    "years": [
+      2023,
+      2024,
+      2025,
+      2026
+    ],
+    "label": "2023–2026",
+    "avg_u20": 13.25,
+    "avg_u23": 26.5,
+    "med_u20": 14.0,
+    "med_u23": 28.5
   }
 }
